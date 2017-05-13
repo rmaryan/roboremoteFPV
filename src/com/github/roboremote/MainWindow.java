@@ -34,8 +34,9 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
 import java.util.Hashtable;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.Vector;
 import java.util.prefs.Preferences;
 
@@ -52,18 +53,23 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.JTextPane;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.EtchedBorder;
 
 import com.github.roboremote.HIDManager.HIDEventListener;
 import com.github.roboremote.RoboCommandsModel.CommandRecord;
+import com.github.roboremote.RoboConnManager.RoboMessageListener;
 
 import net.java.games.input.Event;
 import uk.co.caprica.vlcj.component.EmbeddedMediaPlayerComponent;
 import uk.co.caprica.vlcj.discovery.NativeDiscovery;
+import uk.co.caprica.vlcj.player.MediaPlayer;
+import uk.co.caprica.vlcj.player.MediaPlayerEventAdapter;
 
 public class MainWindow {
 	private JFrame frame;
@@ -82,11 +88,37 @@ public class MainWindow {
 	// Window controls
 	private JCheckBox connectionCheckBox;
 	private JComboBox<String> connectionsComboBox;
+	private JLabel connectionIndicator;
 	private JCheckBox videoCheckBox;
 	private JTextField videoURLTextField;
+	private JLabel videoIndicator;
+
+	private JRadioButton idleButton;
+	private JLabel[] modeIndicators = new JLabel[4];
+
+	private JLabel robotLabel;
+	private JLabel frontLeftDistanceLabel;
+	private JLabel frontDistanceLabel;
+	private JLabel frontRightDistanceLabel;
+	private JLabel frontLeftIndicator;
+	private JLabel frontRightIndicator;
+	private JLabel groundLeftIndicator;
+	private JLabel groundRightIndicator;
+
+	private JLabel frontLightIndicator;
+	private JLabel rearLightIndicator;
+	private JLabel sideLightIndicator;
 
 	private JSlider turningRate;
 	private JSlider speedRate;
+
+	private JTextArea logTextPane;
+	private JTextField commandTextField;
+	private JCheckBox showAllCheckBox;
+
+
+	// this timer gathers the analog controls values and feeds to the robot
+	private Timer motorsTimer;
 
 	// Core Window Actions
 	private Action actionFW, actionRW, actionLeft, actionRight, actionModeIdle, actionModeAI, actionModeScenario,
@@ -194,19 +226,43 @@ public class MainWindow {
 		c.anchor = GridBagConstraints.WEST;
 		c.insets.set(0, 0, 0, 5);
 
-		JRadioButton idleButton = new JRadioButton(actionModeIdle);
+		idleButton = new JRadioButton(actionModeIdle);
 		idleButton.setSelected(true);
+		idleButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_MODE_IDLE, 1));
+			}
+		});
 		p.add(idleButton, c);
 
 		JRadioButton aiButton = new JRadioButton(actionModeAI);
+		aiButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_MODE_AI, 1));
+			}
+		});
 		c.gridy = 1;
 		p.add(aiButton, c);
 
 		JRadioButton scenarioButton = new JRadioButton(actionModeScenario);
+		scenarioButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_MODE_SCENARIO, 1));
+			}
+		});
 		c.gridy = 2;
 		p.add(scenarioButton, c);
 
 		JRadioButton rcButton = new JRadioButton(actionModeRC);
+		rcButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_MODE_RC, 1));
+			}
+		});
 		c.gridy = 3;
 		p.add(rcButton, c);
 
@@ -218,15 +274,18 @@ public class MainWindow {
 		group.add(rcButton);
 
 		// Mode Indicators
+		for(int i=0; i<modeIndicators.length; i++) {
+			modeIndicators[i] = new JLabel(grayLightIcon);
+		}
 		c.gridx = 1;
 		c.gridy = 0;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(modeIndicators[0], c);
 		c.gridy = 1;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(modeIndicators[1], c);
 		c.gridy = 2;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(modeIndicators[2], c);
 		c.gridy = 3;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(modeIndicators[3], c);
 
 		// spacer
 		c.gridx = 3;
@@ -250,14 +309,14 @@ public class MainWindow {
 		p.setBorder(
 				BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED), "Distances"));
 
-		JLabel robotLabel = new JLabel(createResoruceIcon("robot_top.png"));
-		JLabel frontLeftDistanceLabel = new JLabel("0.0");
-		JLabel frontDistanceLabel = new JLabel("0.0");
-		JLabel frontRightDistanceLabel = new JLabel("0.0");
-		JLabel frontLeftIndicator = new JLabel(grayLightIcon);
-		JLabel frontRightIndicator = new JLabel(grayLightIcon);
-		JLabel groundLeftIndicator = new JLabel(grayLightIcon);
-		JLabel groundRightIndicator = new JLabel(grayLightIcon);
+		robotLabel = new JLabel(createResoruceIcon("robot_top.png"));
+		frontLeftDistanceLabel = new JLabel("0");
+		frontDistanceLabel = new JLabel("0");
+		frontRightDistanceLabel = new JLabel("0");
+		frontLeftIndicator = new JLabel(grayLightIcon);
+		frontRightIndicator = new JLabel(grayLightIcon);
+		groundLeftIndicator = new JLabel(grayLightIcon);
+		groundRightIndicator = new JLabel(grayLightIcon);
 
 		GridBagConstraints c = new GridBagConstraints();
 		c.anchor = GridBagConstraints.CENTER;
@@ -301,8 +360,30 @@ public class MainWindow {
 		p.setBorder(
 				BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED), "Console"));
 
-		p.add(new JTextPane(), BorderLayout.CENTER);
-		p.add(new JTextField(), BorderLayout.PAGE_END);
+		logTextPane = new JTextArea();		
+		logTextPane.setEditable(false);
+		JScrollPane scrollPane = new JScrollPane(logTextPane); 
+		p.add(scrollPane, BorderLayout.CENTER);
+
+
+		commandTextField = new JTextField();
+		commandTextField.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				connectionManager.sendMessage(commandTextField.getText()+RoboCommandsModel.REMOTE_CMD_TERM);
+				logTextPane.append("<"+commandTextField.getText()+"\n");
+				commandTextField.setText("");
+			}
+		});
+
+		showAllCheckBox = new JCheckBox("show all");
+
+		JPanel commandsPanel = new JPanel(new BorderLayout());
+
+		commandsPanel.add(commandTextField, BorderLayout.CENTER);
+		commandsPanel.add(showAllCheckBox, BorderLayout.LINE_END);
+
+		p.add(commandsPanel, BorderLayout.PAGE_END);
 
 		// Placing the pane to the parent container
 		GridBagConstraints c = new GridBagConstraints();
@@ -332,19 +413,23 @@ public class MainWindow {
 
 				if(connectionCheckBox.isSelected() != isConnected) {
 					if(isConnected) {
-						connectionManager.disconnect();
+						disconnectRobot();
 					} else {
-						RoboRemote.logger.info("Connecting...");
 						try {
+							connectionIndicator.setIcon(grayLightIcon);
 							connectionManager.connect(connectionsComboBox.getSelectedItem().toString());
 						} catch (IllegalArgumentException | URISyntaxException | IOException e1) {
+							connectionIndicator.setIcon(redLightIcon);
+							RoboRemote.logger.error("Connection error", e1);
 							JOptionPane.showMessageDialog(frame,
 									e1.getLocalizedMessage(),
 									"Connection error",
 									JOptionPane.ERROR_MESSAGE);
-							RoboRemote.logger.error("Connection error", e1);
 						} finally {
-							connectionCheckBox.setSelected(connectionManager.isConnected());
+							boolean connected = connectionManager.isConnected();
+							connectionCheckBox.setSelected(connected);
+							connectionIndicator.setIcon(connected?greenLightIcon:grayLightIcon);
+							idleButton.doClick();
 						}
 					}
 				}
@@ -360,15 +445,16 @@ public class MainWindow {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if(connectionCheckBox.isSelected()) {
-					connectionManager.disconnect();
+					disconnectRobot();
 					connectionCheckBox.setSelected(false);
 				}
 				//find the video stream pair
 				int selectedConnection = connectionsComboBox.getSelectedIndex();
-				if(selectedConnection >=0) {
-					//TODO disconnect video if connected
+				if(selectedConnection >=0) {					
 					if(videoCheckBox.isSelected()) {
 						videoCheckBox.setSelected(false);
+						mediaPlayerComponent.getMediaPlayer().stop();
+						videoIndicator.setIcon(grayLightIcon);
 					}
 					videoURLTextField.setText(RoboCommandsModel.getVideoStreams().get(selectedConnection));
 				}
@@ -378,10 +464,25 @@ public class MainWindow {
 		p.add(connectionsComboBox, c);
 		c.gridx = 2;
 		c.weightx = 0;
-		p.add(new JLabel(grayLightIcon), c);
+		connectionIndicator = new JLabel(grayLightIcon); 
+		p.add(connectionIndicator, c);
 
 		// Video line
 		videoCheckBox = new JCheckBox("Video");
+
+		videoCheckBox.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {				
+				if(videoCheckBox.isSelected()) {
+					videoIndicator.setIcon(grayLightIcon);
+					mediaPlayerComponent.getMediaPlayer().playMedia(videoURLTextField.getText());
+				} else {
+					videoIndicator.setIcon(grayLightIcon);
+					mediaPlayerComponent.getMediaPlayer().stop();
+				}
+			}
+		});
+
 		c.gridx = 0;
 		c.gridy = 1;
 		p.add(videoCheckBox, c);
@@ -389,8 +490,10 @@ public class MainWindow {
 		videoURLTextField = new JTextField();
 		videoURLTextField.setEditable(false);
 		p.add(videoURLTextField, c);
-		c.gridx = 2;		
-		p.add(new JLabel(grayLightIcon), c);
+
+		c.gridx = 2;
+		videoIndicator = new JLabel(grayLightIcon);
+		p.add(videoIndicator, c);
 
 		// Placing the pane to the parent container
 		c = new GridBagConstraints();
@@ -492,13 +595,16 @@ public class MainWindow {
 		p.add(new JCheckBox("Side Lights"), c);
 
 		// Lights indicators
+		frontLightIndicator = new JLabel(grayLightIcon);
+		rearLightIndicator = new JLabel(grayLightIcon);
+		sideLightIndicator = new JLabel(grayLightIcon);
 		c.gridx = 1;
 		c.gridy = 0;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(frontLightIndicator, c);
 		c.gridy = 1;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(rearLightIndicator, c);
 		c.gridy = 2;
-		p.add(new JLabel(grayLightIcon), c);
+		p.add(sideLightIndicator, c);
 
 		// spacer
 		c.gridy = 3;
@@ -526,6 +632,30 @@ public class MainWindow {
 		if (foundVLC) {
 			mediaPlayerComponent = new EmbeddedMediaPlayerComponent();
 			topLeftPane.add(mediaPlayerComponent, BorderLayout.CENTER);
+
+			// listen to the video status and indicate it in the UI
+			mediaPlayerComponent.getMediaPlayer().addMediaPlayerEventListener(new MediaPlayerEventAdapter() {
+				@Override
+				public void playing(MediaPlayer mediaPlayer) {
+					videoIndicator.setIcon(greenLightIcon);
+				}
+
+				@Override
+				public void finished(MediaPlayer mediaPlayer) {
+					videoCheckBox.setSelected(false);
+					videoIndicator.setIcon(grayLightIcon);
+				}
+
+				@Override
+				public void error(MediaPlayer mediaPlayer) {
+					videoCheckBox.setSelected(false);
+					videoIndicator.setIcon(redLightIcon);
+					JOptionPane.showMessageDialog(frame,
+							"Can't play video: "+videoURLTextField.getText(),
+							"Video Error",
+							JOptionPane.ERROR_MESSAGE);			    	
+				}
+			});
 		} else {
 			JLabel errorLabel = new JLabel("VLC not found. Please reinstall VLC and try again.");
 			errorLabel.setForeground(Color.RED);
@@ -571,10 +701,37 @@ public class MainWindow {
 
 				CommandRecord cRec = RoboCommandsModel.hidEventToCommandRecord(e);
 				if(cRec!=null) {
-					processCommand(cRec);
+					processUserCommand(cRec);
 				}
 			}
 		});
+
+		// listen to the messages from the robot
+		connectionManager.addMessageListener(new RoboMessageListener() {
+			@Override
+			public void messageReceived(String message) {
+				message = message.trim();
+				processRobotMessage(message);
+				if(!showAllCheckBox.isSelected()) {
+					if(message.charAt(0) != '~') {
+						return;
+					}
+				}
+				logTextPane.append(message+"\n");				
+			}
+		});
+
+		// start the timer which will feed the rudder and throttle commands to the robot on regular basis
+		motorsTimer = new Timer(true);
+		motorsTimer.scheduleAtFixedRate(new TimerTask() {
+			@Override
+			public void run() {
+				if(connectionManager.isConnected()) {
+					String message = generateMotorsCommand(speedRate.getValue(), turningRate.getValue());
+					connectionManager.sendMessage(message);
+				}
+			}
+		}, 1000, 100);
 	}
 
 	// converts float analog values 0..1 to int 0..255
@@ -582,41 +739,171 @@ public class MainWindow {
 		return Math.round(Math.abs(value)*255);
 	}
 
+	// generates the motors control command string
+	private String generateMotorsCommand(int speedValue, int turningValue) {
+		int leftSpeed = 0;
+		int rightSpeed = 0;
+
+		// we set the speed axis value to the leading track speed
+		// and then identify how much the secondary track speed should deviate 
+		if(speedValue > 0) {
+			if(turningValue > 0) {
+				leftSpeed = speedValue+255;
+				rightSpeed = leftSpeed - turningValue*2;
+				rightSpeed = rightSpeed<0?0:rightSpeed;
+			} else {
+				rightSpeed = speedValue+255;
+				leftSpeed = rightSpeed + turningValue*2;
+				leftSpeed = leftSpeed<0?0:leftSpeed;
+			}
+		} else {
+			if(turningValue > 0) {
+				leftSpeed = speedValue+255;
+				rightSpeed = leftSpeed + turningValue*2;
+				rightSpeed = rightSpeed>511?511:rightSpeed;
+			} else {
+				rightSpeed = speedValue+255;
+				leftSpeed = rightSpeed - turningValue*2;
+				leftSpeed = leftSpeed>511?511:leftSpeed;
+			}			
+		}
+		String message = "X" +
+				String.format("%03d", leftSpeed) +
+				String.format("%03d", rightSpeed) +
+				RoboCommandsModel.REMOTE_CMD_TERM;
+		return message;
+	}
+
 	// this is the method which processes commands from the user
 	// it updates the GUI correspondingly
 	// and sends commands to the robot
-	protected void processCommand(CommandRecord cRec) {
-		// TODO COMPLETE THIS
-		RoboRemote.logger.info(""+cRec.value);		
+	protected void processUserCommand(CommandRecord cRec) {
 
-		switch(cRec.command) {
-		case CMD_FORWWARD:			
-			speedRate.setValue(axisToInteger(cRec.value));
-			connectionManager.sendMessage(cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM);
+		// make sure Swing components are updated in the Swing thread
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				switch(cRec.command) {
+				case CMD_FORWWARD:			
+					speedRate.setValue(axisToInteger(cRec.value));
+					break;
+				case CMD_REVERSE:
+					speedRate.setValue(-axisToInteger(cRec.value));
+					break;
+				case CMD_LEFT:
+					turningRate.setValue(-axisToInteger(cRec.value));
+					break;
+				case CMD_RIGHT:
+					turningRate.setValue(axisToInteger(cRec.value));
+					break;
+				default: {
+					String message = cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM;
+					connectionManager.sendMessage(message);
+
+					if(showAllCheckBox.isSelected()) {			
+						logTextPane.append("<"+message);
+					}	
+				}
+				}	
+			}
+		});
+	}
+
+	// here we process everything which is received from the robot
+	private void processRobotMessage(String message) {
+
+		int length = message.length();
+		if(length<2) return;
+
+		switch(message.charAt(0)) {
+		case 'M':
+			// mode response
+			for(int i=0; i<modeIndicators.length; i++) {
+				modeIndicators[i].setIcon(grayLightIcon);
+			}
+			switch(message) {
+			case "MI":
+				modeIndicators[0].setIcon(greenLightIcon);
+				break;
+			case "MA":
+				modeIndicators[1].setIcon(greenLightIcon);
+				break;
+			case "MS":
+				modeIndicators[2].setIcon(greenLightIcon);
+				break;
+			case "MR":
+				modeIndicators[3].setIcon(greenLightIcon);
+				break;
+			}
+
 			break;
-		case CMD_REVERSE:
-			speedRate.setValue(-axisToInteger(cRec.value));
-			connectionManager.sendMessage(cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM);
+		case 'L':
+			// lights response
+			if(length==3) {
+				char state = message.charAt(2);
+				switch(message.charAt(1)) {
+				case 'F':
+					frontLightIndicator.setIcon((state == '1')?greenLightIcon:grayLightIcon);
+					break;
+				case 'R':
+					rearLightIndicator.setIcon((state == '1')?greenLightIcon:grayLightIcon);
+					break;
+				case 'S':
+					sideLightIndicator.setIcon((state == '1')?greenLightIcon:grayLightIcon);
+					break;
+				}
+			}
 			break;
-		case CMD_LEFT:
-			turningRate.setValue(-axisToInteger(cRec.value));
-			connectionManager.sendMessage(cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM);
+		case 'R':
+			// range response
+			if(length>3) {
+				switch(message.charAt(1)) {
+				case 'L':
+					frontLeftDistanceLabel.setText(message.substring(2));
+					break;
+				case 'F':
+					frontDistanceLabel.setText(message.substring(2));
+					break;
+				case 'R':
+					frontRightDistanceLabel.setText(message.substring(2));
+					break;
+				case 'O':
+					if(length == 6) {
+						char frontLeft = message.charAt(2);  
+						char groundLeft = message.charAt(3);
+						char groundRight = message.charAt(4);
+						char frontRight = message.charAt(5);
+						frontLeftIndicator.setIcon((frontLeft == '1')?redLightIcon:greenLightIcon);
+						groundLeftIndicator.setIcon((groundLeft == '1')?redLightIcon:greenLightIcon);
+						groundRightIndicator.setIcon((groundRight == '1')?redLightIcon:greenLightIcon);
+						frontRightIndicator.setIcon((frontRight == '1')?redLightIcon:greenLightIcon);					
+					}
+					break;
+				}
+			}
 			break;
-		case CMD_RIGHT:
-			turningRate.setValue(axisToInteger(cRec.value));
-			connectionManager.sendMessage(cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM);
-			break;
-		case CMD_LIGHTS_FRONT:
-		case CMD_LIGHTS_REAR:
-		case CMD_LIGHTS_SIDES:
-		case CMD_MODE_IDLE:
-		case CMD_MODE_AI:
-		case CMD_MODE_SCENARIO:
-		case CMD_MODE_RC:
-		case CMD_RESCAN_DISTANCES:
-			connectionManager.sendMessage(cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM);
+		}
+	}
+
+	// this method disconnects the UI from the robot
+	// and resets all the indicators
+	protected void disconnectRobot() {
+		connectionManager.disconnect();
+		connectionIndicator.setIcon(grayLightIcon);
+		frontLeftDistanceLabel.setText("0");
+		frontDistanceLabel.setText("0");
+		frontRightDistanceLabel.setText("0");
+		frontLeftIndicator.setIcon(grayLightIcon);
+		frontRightIndicator.setIcon(grayLightIcon);
+		groundLeftIndicator.setIcon(grayLightIcon);
+		groundRightIndicator.setIcon(grayLightIcon);
+		for(int i=0; i<modeIndicators.length; i++) {
+			modeIndicators[i].setIcon(grayLightIcon);
 		}
 
+		frontLightIndicator.setIcon(grayLightIcon);
+		rearLightIndicator.setIcon(grayLightIcon);
+		sideLightIndicator.setIcon(grayLightIcon);
 	}
 
 	public class ActionFW extends AbstractAction {
@@ -629,7 +916,7 @@ public class MainWindow {
 
 		public void actionPerformed(ActionEvent e) {
 			// TODO Implement FW action
-			connectionManager.sendMessage("R\n");
+			//connectionManager.sendMessage("R\n");
 		}
 	}
 
@@ -753,6 +1040,9 @@ public class MainWindow {
 
 		public void actionPerformed(ActionEvent e) {
 			writeSettings();
+			//release VLC resources on exit
+			mediaPlayerComponent.getMediaPlayer().stop();
+			mediaPlayerComponent.release();
 			frame.setVisible(false);
 			frame.dispose();
 			System.exit(0);

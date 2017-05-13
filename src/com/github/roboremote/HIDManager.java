@@ -34,28 +34,28 @@ import net.java.games.input.Event;
  *  
  */
 public class HIDManager {
-	
+
 	// the list of the supported controller types
 	private HashSet<Controller.Type> supportedControlerTypes = null;
 	// the list of the controllers detected in the system
 	private HashMap<String,Controller> controllersList = null;
-	
+
 	// Selected controller
 	private Controller selectedController = null;
-	
+
 	// Timer which controls the controller's polling
 	private final long TIMER_PERIOD = 50;
 	private Timer pollTimer;
-	
+
 	// all analog values around zero within this range will be changed to zero
 	private final float ZERO_DEAD_ZONE = 0.03f;
-	
+
 	// Event listeners declarations
 	public interface HIDEventListener {
 		void actionPerformed(Event e);
 	}
 	private HashSet<HIDEventListener> eventListeners = new HashSet<HIDEventListener>(); 
-	
+
 	public HIDManager() {
 		// generate list of the supported controlers
 		supportedControlerTypes = new HashSet<Controller.Type>();
@@ -64,9 +64,9 @@ public class HIDManager {
 		supportedControlerTypes.add(Controller.Type.RUDDER);
 		supportedControlerTypes.add(Controller.Type.STICK);
 		supportedControlerTypes.add(Controller.Type.WHEEL);
-		
+
 		controllersList = new HashMap<String,Controller>();
-		
+
 		// "JInput does not rescan the controllers. It's focus is as a games API, most gamers have their hardware plugged in when they start a game."
 		// http://www.java-gaming.org/index.php?topic=21694.0
 		// Let's not refresh the list then - generate everything at the beginning
@@ -78,56 +78,54 @@ public class HIDManager {
 				controllersList.put(allControllers[i].getName(),allControllers[i]);
 			}
 		}
-		
+
 		// start the polling cycle
-        pollTimer = new Timer(true);
-        this.pollTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-            	if(selectedController!=null) {
-            		if(eventListeners.size()>0) {
-            			selectedController.poll();
-            			Event e = new Event();
-            			
-            			// process all the events in the queue
-            			while (selectedController.getEventQueue().getNextEvent(e)) {
-            				
-            				net.java.games.input.Component component = e.getComponent();
-            				
-                			if(component.isAnalog()) {
-                				float value = e.getValue();
-                				
-                				// check if we need to stick to zero
-                				if(java.lang.Math.abs(value)<ZERO_DEAD_ZONE) {
-                					value = 0;
-                					e.set(e.getComponent(), 0, e.getNanos());
-                				}
-                			}
-            				
-                			// send the event to all listeners
-                			for (HIDEventListener listener : eventListeners) {
-            					SwingUtilities.invokeLater(new Runnable() {
-            					    public void run() {
-            					    	listener.actionPerformed(e);
-            					    }
-            					});
-            				}
-            			}
-            		}            	 
-            	}                
-            }
-        }, 0, TIMER_PERIOD);
-		
+		pollTimer = new Timer(true);
+		this.pollTimer.scheduleAtFixedRate(new TimerTask() {
+			@Override
+			public void run() {
+				if(selectedController!=null) {
+					selectedController.poll();
+					Event e = new Event();
+
+					// process all the events in the queue
+					while (selectedController.getEventQueue().getNextEvent(e)) {
+
+						net.java.games.input.Component component = e.getComponent();
+
+						if(component.isAnalog()) {
+							float value = e.getValue();
+
+							// check if we need to stick to zero
+							if(java.lang.Math.abs(value)<ZERO_DEAD_ZONE) {
+								value = 0;
+								e.set(e.getComponent(), 0, e.getNanos());
+							}
+						}
+
+						// send the event to all listeners
+						for (HIDEventListener listener : eventListeners) {
+							SwingUtilities.invokeLater(new Runnable() {
+								public void run() {
+									listener.actionPerformed(e);
+								}
+							});
+						}
+					}            	 
+				}                
+			}
+		}, 0, TIMER_PERIOD);
+
 	}
-	
+
 	public String[] getControllersList() {
 		return controllersList.keySet().toArray(new String[controllersList.size()]);
 	}
-	
+
 	public void setSelectedController(String controllerName) {
 		selectedController = controllersList.get(controllerName);
 	}
-	
+
 	public String getSelectedController() {
 		if(selectedController == null) {
 			return "";
@@ -135,7 +133,7 @@ public class HIDManager {
 			return 	selectedController.getName();
 		}
 	}
-	
+
 	public void addEventListener(HIDEventListener l) {
 		eventListeners.add(l);
 	}

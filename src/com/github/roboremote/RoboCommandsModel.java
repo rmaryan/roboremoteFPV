@@ -48,14 +48,14 @@ public class RoboCommandsModel {
 		CMD_REVERSE			("Reverse", "S", "S"), 
 		CMD_LEFT			("Left", "A", "A"), 
 		CMD_RIGHT			("Right", "D", "D"), 
-		CMD_LIGHTS_FRONT	("Lights Front", "Z", "Z"), 
-		CMD_LIGHTS_REAR		("Lights Rear", "X", "X"), 
-		CMD_LIGHTS_SIDES	("Lights Sides", "C", "C"), 
+		CMD_LIGHTS_FRONT	("Lights Front", "Z", "LF"), 
+		CMD_LIGHTS_REAR		("Lights Rear", "X", "LR"), 
+		CMD_LIGHTS_SIDES	("Lights Sides", "C", "LS"), 
 		CMD_MODE_IDLE		("Mode Idle", "1", "MI"), 
 		CMD_MODE_AI			("Mode AI", "2", "MA"), 
 		CMD_MODE_SCENARIO	("Mode Scenario", "3", "MS"), 
 		CMD_MODE_RC			("Mode RC", "4", "MR"), 
-		CMD_RESCAN_DISTANCES("Rescan Distances", "E", "E");
+		CMD_RESCAN_DISTANCES("Rescan Distances", "E", "R");
 
 		private final String title;
 		private final String defaultKbCommnd;
@@ -102,7 +102,7 @@ public class RoboCommandsModel {
 		return CommandsList.values()[cmdID].getDefaultKbCommand();
 	}
 
-	//This transpared container is used to pass the command code together with the optional value from the source to the processing code
+	//This transparent container is used to pass the command code together with the optional value from the source to the processing code
 	public static class CommandRecord {
 		public CommandsList command;
 		public float value;

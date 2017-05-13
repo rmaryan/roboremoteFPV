@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -33,7 +34,7 @@ import javax.swing.SwingUtilities;
 /**
  * A wrapper for all remote telnet connections
  */
-public class RoboConnManager {
+public class RoboConnManager implements Runnable {
 
 	// Event listeners declarations
 	public interface RoboMessageListener {
@@ -43,48 +44,60 @@ public class RoboConnManager {
 
 	// the robot connection socket
 	private Socket socket = new Socket();
-	private BufferedReader inputStream;
+	private volatile BufferedReader inputStream;
 	private PrintStream outputStream;
+
+	// this thread will be reading the stream from the robot
+	private Thread socketReaderThread;
+	private volatile boolean readingSuspended = true;
 
 
 	RoboConnManager() {
 		// create the socket reading thread
-		Thread socketReaderThread = new Thread(new Runnable() {
-			@Override
-			public void run() {
-				while(true) {
-					if(socket !=null) {
-						if(socket.isConnected()) {
-							try {
-								if(inputStream.ready()) {
-									String message = inputStream.readLine();
-									if(message!=null) {
-										// send the message to all listeners
-										for (RoboMessageListener listener : messageListeners) {
-											SwingUtilities.invokeLater(new Runnable() {
-												public void run() {
-													listener.messageReceived(message);
-												}
-											});
-										}
+		socketReaderThread = new Thread(this);
+		socketReaderThread.start();
+	}
 
-									}
+	// this is the input stream reading thread runnable
+	public void run() {
+		while(true) {
+			try {
+				// reading might be suspended
+				// if so - wait until this change
+				synchronized(this) {
+					while (readingSuspended)
+						wait();
+				}						
+
+				if(inputStream!=null) {
+					String message = inputStream.readLine();
+					if(message!=null) {
+						// send the message to all listeners
+						for (RoboMessageListener listener : messageListeners) {
+							SwingUtilities.invokeLater(new Runnable() {
+								public void run() {
+									listener.messageReceived(message);
 								}
-							} catch (IOException e) {
-								// something wrong with the stream
-								RoboRemote.logger.error("Connection read error.", e);
-							}
+							});
 						}
 					}
 				}
+			} catch (SocketException se) {
+				if(!readingSuspended) {
+					RoboRemote.logger.error("Connection read error.", se);
+				}
+			} catch (IOException e) {
+				// something wrong with the stream
+				RoboRemote.logger.error("Connection read error.", e);
+			} catch (InterruptedException ie) {
+				// the reading was interrupted
+				// that is OK
 			}
-		});
-		socketReaderThread.start();
-
+		}
 	}
 
 	// initialize a new connection closing the old one if needed
-	public void connect(String address) throws URISyntaxException, IllegalArgumentException, UnknownHostException, IOException {
+	public synchronized void connect(String address) throws URISyntaxException, IllegalArgumentException, UnknownHostException, IOException {
 		if(socket !=null) {
 			if(socket.isConnected()) {
 				disconnect();
@@ -97,6 +110,10 @@ public class RoboConnManager {
 		inputStream = new BufferedReader(new InputStreamReader(
 				socket.getInputStream()));
 		outputStream = new PrintStream(socket.getOutputStream(), true);
+
+		// notify the reading thread to start processing the input stream
+		readingSuspended = false;
+		notify();
 	}
 
 
@@ -110,12 +127,13 @@ public class RoboConnManager {
 	}
 
 	// close the connection
-	public void disconnect() {		
+	public synchronized void disconnect() {		
 		try {
-			outputStream.close(); // close output stream
-			inputStream.close(); // close input stream
+			readingSuspended = true; // flag the reading thread to stop
 			socket.close(); // close port
 			socket = null;
+			inputStream = null;
+			outputStream = null;
 		} catch (IOException e) {
 			RoboRemote.logger.error("Connection lost.", e);
 		}
