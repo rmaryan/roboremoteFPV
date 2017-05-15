@@ -74,7 +74,7 @@ import uk.co.caprica.vlcj.player.MediaPlayerEventAdapter;
 public class MainWindow {
 	private JFrame frame;
 	private RoboConnManager connectionManager;
-	private EmbeddedMediaPlayerComponent mediaPlayerComponent;
+	private EmbeddedMediaPlayerComponent mediaPlayerComponent = null;
 	private JPanel topLeftPane, topRightPane;
 
 	// Preferences dialog
@@ -417,7 +417,9 @@ public class MainWindow {
 					} else {
 						try {
 							connectionIndicator.setIcon(grayLightIcon);
-							connectionManager.connect(connectionsComboBox.getSelectedItem().toString());
+							if(connectionsComboBox.getSelectedIndex()!=-1) {
+								connectionManager.connect(connectionsComboBox.getSelectedItem().toString());
+							}
 						} catch (IllegalArgumentException | URISyntaxException | IOException e1) {
 							connectionIndicator.setIcon(redLightIcon);
 							RoboRemote.logger.error("Connection error", e1);
@@ -453,7 +455,9 @@ public class MainWindow {
 				if(selectedConnection >=0) {					
 					if(videoCheckBox.isSelected()) {
 						videoCheckBox.setSelected(false);
-						mediaPlayerComponent.getMediaPlayer().stop();
+						if(mediaPlayerComponent!=null) {
+							mediaPlayerComponent.getMediaPlayer().stop();
+						}
 						videoIndicator.setIcon(grayLightIcon);
 					}
 					videoURLTextField.setText(RoboCommandsModel.getVideoStreams().get(selectedConnection));
@@ -472,13 +476,15 @@ public class MainWindow {
 
 		videoCheckBox.addActionListener(new ActionListener() {
 			@Override
-			public void actionPerformed(ActionEvent e) {				
-				if(videoCheckBox.isSelected()) {
-					videoIndicator.setIcon(grayLightIcon);
-					mediaPlayerComponent.getMediaPlayer().playMedia(videoURLTextField.getText());
-				} else {
-					videoIndicator.setIcon(grayLightIcon);
-					mediaPlayerComponent.getMediaPlayer().stop();
+			public void actionPerformed(ActionEvent e) {
+				if(mediaPlayerComponent!=null) {
+					if(videoCheckBox.isSelected()) {
+						videoIndicator.setIcon(grayLightIcon);
+						mediaPlayerComponent.getMediaPlayer().playMedia(videoURLTextField.getText());
+					} else {
+						videoIndicator.setIcon(grayLightIcon);
+						mediaPlayerComponent.getMediaPlayer().stop();
+					}
 				}
 			}
 		});
@@ -1041,8 +1047,10 @@ public class MainWindow {
 		public void actionPerformed(ActionEvent e) {
 			writeSettings();
 			//release VLC resources on exit
-			mediaPlayerComponent.getMediaPlayer().stop();
-			mediaPlayerComponent.release();
+			if(mediaPlayerComponent!=null) {
+				mediaPlayerComponent.getMediaPlayer().stop();
+				mediaPlayerComponent.release();
+			}
 			frame.setVisible(false);
 			frame.dispose();
 			System.exit(0);
@@ -1054,7 +1062,7 @@ public class MainWindow {
 	 */
 	private void readSettings() {
 		// the window size and position defaults
-		final Rectangle DEFAULT_BOUNDS = new Rectangle(80, 80, 900, 500);
+		final Rectangle DEFAULT_BOUNDS = new Rectangle(80, 10, 900, 840);
 
 		Rectangle bounds = MainWindow.loadFrameBounds(prefKey, DEFAULT_BOUNDS);
 		frame.setBounds(bounds);
@@ -1083,7 +1091,9 @@ public class MainWindow {
 	 */
 	private void writeSettings() {
 		MainWindow.saveFrameBounds(prefKey, frame.getBounds());	
-		RoboCommandsModel.setLastUsedConnection(connectionsComboBox.getSelectedItem().toString());
+		if(connectionsComboBox.getSelectedIndex()!=-1) {
+			RoboCommandsModel.setLastUsedConnection(connectionsComboBox.getSelectedItem().toString());
+		}
 		RoboCommandsModel.saveSettings();
 	}
 
