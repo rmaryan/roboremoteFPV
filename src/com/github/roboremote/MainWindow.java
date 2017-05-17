@@ -41,28 +41,31 @@ import java.util.Vector;
 import java.util.prefs.Preferences;
 
 import javax.swing.AbstractAction;
-import javax.swing.Action;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
+import javax.swing.JRootPane;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
 import javax.swing.border.EtchedBorder;
 
 import com.github.roboremote.HIDManager.HIDEventListener;
 import com.github.roboremote.RoboCommandsModel.CommandRecord;
+import com.github.roboremote.RoboCommandsModel.CommandsList;
 import com.github.roboremote.RoboConnManager.RoboMessageListener;
 
 import net.java.games.input.Event;
@@ -71,6 +74,9 @@ import uk.co.caprica.vlcj.discovery.NativeDiscovery;
 import uk.co.caprica.vlcj.player.MediaPlayer;
 import uk.co.caprica.vlcj.player.MediaPlayerEventAdapter;
 
+/*
+ * Application main window class.
+ */
 public class MainWindow {
 	private JFrame frame;
 	private RoboConnManager connectionManager;
@@ -116,18 +122,12 @@ public class MainWindow {
 	private JTextField commandTextField;
 	private JCheckBox showAllCheckBox;
 
+	private JButton exitButton;
 
 	// this timer gathers the analog controls values and feeds to the robot
 	private Timer motorsTimer;
 
-	// Core Window Actions
-	private Action actionFW, actionRW, actionLeft, actionRight, actionModeIdle, actionModeAI, actionModeScenario,
-	actionModeRC, actionPreferences, actionExit;
-
-	/**
-	 * Constructor creates the main window and show it immediately
-	 *
-	 */
+	// Constructor creates the main window and show it immediately
 	public MainWindow() {
 		// initialize the connections manager
 		connectionManager = new RoboConnManager();
@@ -141,13 +141,9 @@ public class MainWindow {
 		});
 	}
 
-	/**
-	 * Create the GUI and show it. For thread safety, this method should be
-	 * invoked from the event-dispatching thread.
-	 */
+	// Create the GUI and show it. For thread safety, this method should be
+	// invoked from the event-dispatching thread.
 	private void createAndShowGUI() {
-		initializeActions();
-
 		// Create and set up the window.
 		frame = new JFrame("Robot Remote Control Dashboard");
 		frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -179,6 +175,9 @@ public class MainWindow {
 		c.fill = GridBagConstraints.BOTH;
 		frame.add(topPane, c);
 
+		// initialize the keyboard, HID and connection action handlers
+		initializeActions();
+
 		// build the GUI panel by panel
 		initializeVideoPane();
 		initializeMovementPane();
@@ -193,7 +192,7 @@ public class MainWindow {
 		frame.addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent we) {
-				actionExit.actionPerformed(null);
+				exitButton.doClick();
 			}
 		});
 
@@ -205,8 +204,38 @@ public class MainWindow {
 
 	private void initializeButtonsPane() {
 		JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-		p.add(new JButton(actionPreferences));
-		p.add(new JButton(actionExit));
+
+		JButton prefButton = new JButton("Settings", createResoruceIcon("settings.png"));
+		prefButton.setMnemonic(KeyEvent.VK_S);
+
+		prefButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (prefsDialog == null) {
+					prefsDialog = new PrefDialog();
+				}
+				prefsDialog.showDialog();
+			}
+		});
+		p.add(prefButton);
+
+		exitButton = new JButton("Exit", createResoruceIcon("exit.png"));
+		exitButton.setMnemonic(KeyEvent.VK_X);
+		exitButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				writeSettings();
+				// release VLC resources on exit
+				if (mediaPlayerComponent != null) {
+					mediaPlayerComponent.getMediaPlayer().stop();
+					mediaPlayerComponent.release();
+				}
+				frame.setVisible(false);
+				frame.dispose();
+				System.exit(0);
+			}
+		});
+		p.add(exitButton);
 
 		// Placing the pane to the parent container
 		GridBagConstraints c = new GridBagConstraints();
@@ -226,7 +255,7 @@ public class MainWindow {
 		c.anchor = GridBagConstraints.WEST;
 		c.insets.set(0, 0, 0, 5);
 
-		idleButton = new JRadioButton(actionModeIdle);
+		idleButton = new JRadioButton("Idle");
 		idleButton.setSelected(true);
 		idleButton.addActionListener(new ActionListener() {
 			@Override
@@ -236,7 +265,7 @@ public class MainWindow {
 		});
 		p.add(idleButton, c);
 
-		JRadioButton aiButton = new JRadioButton(actionModeAI);
+		JRadioButton aiButton = new JRadioButton("AI");
 		aiButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -246,7 +275,7 @@ public class MainWindow {
 		c.gridy = 1;
 		p.add(aiButton, c);
 
-		JRadioButton scenarioButton = new JRadioButton(actionModeScenario);
+		JRadioButton scenarioButton = new JRadioButton("Scenario");
 		scenarioButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -256,7 +285,7 @@ public class MainWindow {
 		c.gridy = 2;
 		p.add(scenarioButton, c);
 
-		JRadioButton rcButton = new JRadioButton(actionModeRC);
+		JRadioButton rcButton = new JRadioButton("RC");
 		rcButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -274,7 +303,7 @@ public class MainWindow {
 		group.add(rcButton);
 
 		// Mode Indicators
-		for(int i=0; i<modeIndicators.length; i++) {
+		for (int i = 0; i < modeIndicators.length; i++) {
 			modeIndicators[i] = new JLabel(grayLightIcon);
 		}
 		c.gridx = 1;
@@ -360,18 +389,17 @@ public class MainWindow {
 		p.setBorder(
 				BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED), "Console"));
 
-		logTextPane = new JTextArea();		
+		logTextPane = new JTextArea();
 		logTextPane.setEditable(false);
-		JScrollPane scrollPane = new JScrollPane(logTextPane); 
+		JScrollPane scrollPane = new JScrollPane(logTextPane);
 		p.add(scrollPane, BorderLayout.CENTER);
-
 
 		commandTextField = new JTextField();
 		commandTextField.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				connectionManager.sendMessage(commandTextField.getText()+RoboCommandsModel.REMOTE_CMD_TERM);
-				logTextPane.append("<"+commandTextField.getText()+"\n");
+				connectionManager.sendMessage(commandTextField.getText() + RoboCommandsModel.REMOTE_CMD_TERM);
+				logTextPane.append("<" + commandTextField.getText() + "\n");
 				commandTextField.setText("");
 			}
 		});
@@ -411,32 +439,54 @@ public class MainWindow {
 			public void actionPerformed(ActionEvent e) {
 				boolean isConnected = connectionManager.isConnected();
 
-				if(connectionCheckBox.isSelected() != isConnected) {
-					if(isConnected) {
+				if (connectionCheckBox.isSelected() != isConnected) {
+					if (isConnected) {
 						disconnectRobot();
 					} else {
-						try {
-							connectionIndicator.setIcon(grayLightIcon);
-							if(connectionsComboBox.getSelectedIndex()!=-1) {
-								connectionManager.connect(connectionsComboBox.getSelectedItem().toString());
-							}
-						} catch (IllegalArgumentException | URISyntaxException | IOException e1) {
-							connectionIndicator.setIcon(redLightIcon);
-							RoboRemote.logger.error("Connection error", e1);
-							JOptionPane.showMessageDialog(frame,
-									e1.getLocalizedMessage(),
-									"Connection error",
-									JOptionPane.ERROR_MESSAGE);
-						} finally {
-							boolean connected = connectionManager.isConnected();
-							connectionCheckBox.setSelected(connected);
-							connectionIndicator.setIcon(connected?greenLightIcon:grayLightIcon);
-							idleButton.doClick();
+						connectionIndicator.setIcon(grayLightIcon);						
+						if (connectionsComboBox.getSelectedIndex() != -1) {
+							
+							connectionCheckBox.setEnabled(false);
+							connectionsComboBox.setEnabled(false);
+							
+							// let's start connection in background, so the main window does not freeze
+							SwingWorker<Object, Object> swingWorker = new SwingWorker<Object, Object>() {
+								private volatile String connectionErrorMessage = null;
+								@Override
+								public Object doInBackground() {
+									try {									
+										connectionManager.connect(connectionsComboBox.getSelectedItem().toString());
+									} catch (IllegalArgumentException | URISyntaxException | IOException e1) {
+										RoboRemote.logger.error("Connection error", e1);
+										connectionErrorMessage = e1.getLocalizedMessage();
+									}
+									return null;
+								}
+
+								@Override
+								protected void done() {
+									if(connectionErrorMessage==null) {
+										boolean connected = connectionManager.isConnected();
+										connectionCheckBox.setSelected(connected);
+										connectionIndicator.setIcon(connected ? greenLightIcon : grayLightIcon);
+										idleButton.doClick();
+									} else {
+										connectionIndicator.setIcon(redLightIcon);
+										connectionCheckBox.setSelected(false);
+										JOptionPane.showMessageDialog(frame, connectionErrorMessage, "Connection error",
+												JOptionPane.ERROR_MESSAGE);
+									}
+									connectionCheckBox.setEnabled(true);
+									connectionsComboBox.setEnabled(true);
+								}
+							};
+
+							swingWorker.execute();
 						}
+
 					}
 				}
 			}
-
 		});
 
 		p.add(connectionCheckBox, c);
@@ -446,16 +496,16 @@ public class MainWindow {
 		connectionsComboBox.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(connectionCheckBox.isSelected()) {
+				if (connectionCheckBox.isSelected()) {
 					disconnectRobot();
 					connectionCheckBox.setSelected(false);
 				}
-				//find the video stream pair
+				// find the video stream pair
 				int selectedConnection = connectionsComboBox.getSelectedIndex();
-				if(selectedConnection >=0) {					
-					if(videoCheckBox.isSelected()) {
+				if (selectedConnection >= 0) {
+					if (videoCheckBox.isSelected()) {
 						videoCheckBox.setSelected(false);
-						if(mediaPlayerComponent!=null) {
+						if (mediaPlayerComponent != null) {
 							mediaPlayerComponent.getMediaPlayer().stop();
 						}
 						videoIndicator.setIcon(grayLightIcon);
@@ -468,7 +518,7 @@ public class MainWindow {
 		p.add(connectionsComboBox, c);
 		c.gridx = 2;
 		c.weightx = 0;
-		connectionIndicator = new JLabel(grayLightIcon); 
+		connectionIndicator = new JLabel(grayLightIcon);
 		p.add(connectionIndicator, c);
 
 		// Video line
@@ -477,8 +527,8 @@ public class MainWindow {
 		videoCheckBox.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				if(mediaPlayerComponent!=null) {
-					if(videoCheckBox.isSelected()) {
+				if (mediaPlayerComponent != null) {
+					if (videoCheckBox.isSelected()) {
 						videoIndicator.setIcon(grayLightIcon);
 						mediaPlayerComponent.getMediaPlayer().playMedia(videoURLTextField.getText());
 					} else {
@@ -505,7 +555,6 @@ public class MainWindow {
 		c = new GridBagConstraints();
 		c.fill = GridBagConstraints.BOTH;
 		topRightPane.add(p, c);
-
 	}
 
 	private void initializeMovementPane() {
@@ -518,8 +567,7 @@ public class MainWindow {
 		c.weighty = 0.1;
 		c.weightx = 0.1;
 
-		JButton b = new JButton(actionLeft);
-		b.setHideActionText(true);
+		JButton b = new JButton(createResoruceIcon("left.png"));
 		c.gridy = 1;
 		p.add(b, c);
 
@@ -541,21 +589,18 @@ public class MainWindow {
 		c.fill = GridBagConstraints.HORIZONTAL;
 		p.add(turningRate, c);
 
-		b = new JButton(actionFW);
-		b.setHideActionText(true);
+		b = new JButton(createResoruceIcon("up.png"));
 		c.gridx = 1;
 		c.gridy = 0;
 		c.gridwidth = 1;
 		c.fill = GridBagConstraints.NONE;
 		p.add(b, c);
 
-		b = new JButton(actionRW);
-		b.setHideActionText(true);
+		b = new JButton(createResoruceIcon("down.png"));
 		c.gridy = 2;
 		p.add(b, c);
 
-		b = new JButton(actionRight);
-		b.setHideActionText(true);
+		b = new JButton(createResoruceIcon("right.png"));
 		c.gridx = 2;
 		c.gridy = 1;
 		p.add(b, c);
@@ -656,10 +701,8 @@ public class MainWindow {
 				public void error(MediaPlayer mediaPlayer) {
 					videoCheckBox.setSelected(false);
 					videoIndicator.setIcon(redLightIcon);
-					JOptionPane.showMessageDialog(frame,
-							"Can't play video: "+videoURLTextField.getText(),
-							"Video Error",
-							JOptionPane.ERROR_MESSAGE);			    	
+					JOptionPane.showMessageDialog(frame, "Can't play video: " + videoURLTextField.getText(),
+							"Video Error", JOptionPane.ERROR_MESSAGE);
 				}
 			});
 		} else {
@@ -669,7 +712,7 @@ public class MainWindow {
 		}
 	}
 
-	/** Returns an ImageIcon, or null if the path was invalid. */
+	// Returns an ImageIcon, or null if the path was invalid.
 	public static ImageIcon createResoruceIcon(String imageName) {
 		java.net.URL imageURL = MainWindow.class.getResource("images/" + imageName); //$NON-NLS-1$
 		if (imageURL == null) {
@@ -679,34 +722,44 @@ public class MainWindow {
 		}
 	}
 
-	/**
-	 * Create all global actions.
-	 */
+	// Initialize event handlers
 	private void initializeActions() {
-		actionFW = new ActionFW();
-		actionRW = new ActionRW();
-		actionLeft = new ActionLeft();
-		actionRight = new ActionRight();
-		actionModeIdle = new ActionModeIdle();
-		actionModeAI = new ActionModeAI();
-		actionModeScenario = new ActionModeScenario();
-		actionModeRC = new ActionModeRC();
-		actionPreferences = new ActionPreferences();
-		actionExit = new ActionExit();
+		// initialize key mapping - the actions map part here only
+		JRootPane rootPane = frame.getRootPane();
+
+		AbstractAction uiCommandAction = new AbstractAction() {
+			private static final long serialVersionUID = 6425138801681596694L;
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// everything typed in the command field should be ignored
+				if (!commandTextField.hasFocus()) {
+					// TODO complete this
+					System.out.println("Action triggered: " + e.getActionCommand());
+					System.out.println("Action triggered: " + e.toString());
+				}
+			}
+		};
+
+		// registering handler for all the bindings
+		for (CommandsList command : CommandsList.values()) {
+			rootPane.getActionMap().put(command.getTitle(), uiCommandAction);
+			System.out.println("Action armed: "+command.getTitle());
+		}
 
 		// initialize the joystick listener
 		RoboRemote.hidManager.addEventListener(new HIDEventListener() {
 			@Override
 			public void actionPerformed(Event e) {
-				if(prefsDialog != null) {
-					if(prefsDialog.isVisible()) {
+				if (prefsDialog != null) {
+					if (prefsDialog.isVisible()) {
 						// do nothing settings dialog is being shown
 						return;
 					}
 				}
 
 				CommandRecord cRec = RoboCommandsModel.hidEventToCommandRecord(e);
-				if(cRec!=null) {
+				if (cRec != null) {
 					processUserCommand(cRec);
 				}
 			}
@@ -718,21 +771,22 @@ public class MainWindow {
 			public void messageReceived(String message) {
 				message = message.trim();
 				processRobotMessage(message);
-				if(!showAllCheckBox.isSelected()) {
-					if(message.charAt(0) != '~') {
+				if (!showAllCheckBox.isSelected()) {
+					if (message.charAt(0) != '~') {
 						return;
 					}
 				}
-				logTextPane.append(message+"\n");				
+				logTextPane.append(message + "\n");
 			}
 		});
 
-		// start the timer which will feed the rudder and throttle commands to the robot on regular basis
+		// start the timer which will feed the rudder and throttle commands to
+		// the robot on regular basis
 		motorsTimer = new Timer(true);
 		motorsTimer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
-				if(connectionManager.isConnected()) {
+				if (connectionManager.isConnected()) {
 					String message = generateMotorsCommand(speedRate.getValue(), turningRate.getValue());
 					connectionManager.sendMessage(message);
 				}
@@ -742,7 +796,7 @@ public class MainWindow {
 
 	// converts float analog values 0..1 to int 0..255
 	private int axisToInteger(float value) {
-		return Math.round(Math.abs(value)*255);
+		return Math.round(Math.abs(value) * 255);
 	}
 
 	// generates the motors control command string
@@ -751,32 +805,30 @@ public class MainWindow {
 		int rightSpeed = 0;
 
 		// we set the speed axis value to the leading track speed
-		// and then identify how much the secondary track speed should deviate 
-		if(speedValue > 0) {
-			if(turningValue > 0) {
-				leftSpeed = speedValue+255;
-				rightSpeed = leftSpeed - turningValue*2;
-				rightSpeed = rightSpeed<0?0:rightSpeed;
+		// and then identify how much the secondary track speed should deviate
+		if (speedValue > 0) {
+			if (turningValue > 0) {
+				leftSpeed = speedValue + 255;
+				rightSpeed = leftSpeed - turningValue * 2;
+				rightSpeed = rightSpeed < 0 ? 0 : rightSpeed;
 			} else {
-				rightSpeed = speedValue+255;
-				leftSpeed = rightSpeed + turningValue*2;
-				leftSpeed = leftSpeed<0?0:leftSpeed;
+				rightSpeed = speedValue + 255;
+				leftSpeed = rightSpeed + turningValue * 2;
+				leftSpeed = leftSpeed < 0 ? 0 : leftSpeed;
 			}
 		} else {
-			if(turningValue > 0) {
-				leftSpeed = speedValue+255;
-				rightSpeed = leftSpeed + turningValue*2;
-				rightSpeed = rightSpeed>511?511:rightSpeed;
+			if (turningValue > 0) {
+				leftSpeed = speedValue + 255;
+				rightSpeed = leftSpeed + turningValue * 2;
+				rightSpeed = rightSpeed > 511 ? 511 : rightSpeed;
 			} else {
-				rightSpeed = speedValue+255;
-				leftSpeed = rightSpeed - turningValue*2;
-				leftSpeed = leftSpeed>511?511:leftSpeed;
-			}			
+				rightSpeed = speedValue + 255;
+				leftSpeed = rightSpeed - turningValue * 2;
+				leftSpeed = leftSpeed > 511 ? 511 : leftSpeed;
+			}
 		}
-		String message = "X" +
-				String.format("%03d", leftSpeed) +
-				String.format("%03d", rightSpeed) +
-				RoboCommandsModel.REMOTE_CMD_TERM;
+		String message = "X" + String.format("%03d", leftSpeed) + String.format("%03d", rightSpeed)
+		+ RoboCommandsModel.REMOTE_CMD_TERM;
 		return message;
 	}
 
@@ -789,8 +841,8 @@ public class MainWindow {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				switch(cRec.command) {
-				case CMD_FORWWARD:			
+				switch (cRec.command) {
+				case CMD_FORWWARD:
 					speedRate.setValue(axisToInteger(cRec.value));
 					break;
 				case CMD_REVERSE:
@@ -803,14 +855,14 @@ public class MainWindow {
 					turningRate.setValue(axisToInteger(cRec.value));
 					break;
 				default: {
-					String message = cRec.command.getRemoteCommand()+RoboCommandsModel.REMOTE_CMD_TERM;
+					String message = cRec.command.getRemoteCommand() + RoboCommandsModel.REMOTE_CMD_TERM;
 					connectionManager.sendMessage(message);
 
-					if(showAllCheckBox.isSelected()) {			
-						logTextPane.append("<"+message);
-					}	
+					if (showAllCheckBox.isSelected()) {
+						logTextPane.append("<" + message);
+					}
 				}
-				}	
+				}
 			}
 		});
 	}
@@ -819,15 +871,16 @@ public class MainWindow {
 	private void processRobotMessage(String message) {
 
 		int length = message.length();
-		if(length<2) return;
+		if (length < 2)
+			return;
 
-		switch(message.charAt(0)) {
+		switch (message.charAt(0)) {
 		case 'M':
 			// mode response
-			for(int i=0; i<modeIndicators.length; i++) {
+			for (int i = 0; i < modeIndicators.length; i++) {
 				modeIndicators[i].setIcon(grayLightIcon);
 			}
-			switch(message) {
+			switch (message) {
 			case "MI":
 				modeIndicators[0].setIcon(greenLightIcon);
 				break;
@@ -845,25 +898,25 @@ public class MainWindow {
 			break;
 		case 'L':
 			// lights response
-			if(length==3) {
+			if (length == 3) {
 				char state = message.charAt(2);
-				switch(message.charAt(1)) {
+				switch (message.charAt(1)) {
 				case 'F':
-					frontLightIndicator.setIcon((state == '1')?greenLightIcon:grayLightIcon);
+					frontLightIndicator.setIcon((state == '1') ? greenLightIcon : grayLightIcon);
 					break;
 				case 'R':
-					rearLightIndicator.setIcon((state == '1')?greenLightIcon:grayLightIcon);
+					rearLightIndicator.setIcon((state == '1') ? greenLightIcon : grayLightIcon);
 					break;
 				case 'S':
-					sideLightIndicator.setIcon((state == '1')?greenLightIcon:grayLightIcon);
+					sideLightIndicator.setIcon((state == '1') ? greenLightIcon : grayLightIcon);
 					break;
 				}
 			}
 			break;
 		case 'R':
 			// range response
-			if(length>3) {
-				switch(message.charAt(1)) {
+			if (length > 3) {
+				switch (message.charAt(1)) {
 				case 'L':
 					frontLeftDistanceLabel.setText(message.substring(2));
 					break;
@@ -874,15 +927,15 @@ public class MainWindow {
 					frontRightDistanceLabel.setText(message.substring(2));
 					break;
 				case 'O':
-					if(length == 6) {
-						char frontLeft = message.charAt(2);  
+					if (length == 6) {
+						char frontLeft = message.charAt(2);
 						char groundLeft = message.charAt(3);
 						char groundRight = message.charAt(4);
 						char frontRight = message.charAt(5);
-						frontLeftIndicator.setIcon((frontLeft == '1')?redLightIcon:greenLightIcon);
-						groundLeftIndicator.setIcon((groundLeft == '1')?redLightIcon:greenLightIcon);
-						groundRightIndicator.setIcon((groundRight == '1')?redLightIcon:greenLightIcon);
-						frontRightIndicator.setIcon((frontRight == '1')?redLightIcon:greenLightIcon);					
+						frontLeftIndicator.setIcon((frontLeft == '1') ? redLightIcon : greenLightIcon);
+						groundLeftIndicator.setIcon((groundLeft == '1') ? redLightIcon : greenLightIcon);
+						groundRightIndicator.setIcon((groundRight == '1') ? redLightIcon : greenLightIcon);
+						frontRightIndicator.setIcon((frontRight == '1') ? redLightIcon : greenLightIcon);
 					}
 					break;
 				}
@@ -903,7 +956,7 @@ public class MainWindow {
 		frontRightIndicator.setIcon(grayLightIcon);
 		groundLeftIndicator.setIcon(grayLightIcon);
 		groundRightIndicator.setIcon(grayLightIcon);
-		for(int i=0; i<modeIndicators.length; i++) {
+		for (int i = 0; i < modeIndicators.length; i++) {
 			modeIndicators[i].setIcon(grayLightIcon);
 		}
 
@@ -912,154 +965,7 @@ public class MainWindow {
 		sideLightIndicator.setIcon(grayLightIcon);
 	}
 
-	public class ActionFW extends AbstractAction {
-		private static final long serialVersionUID = -1575160183057701805L;
-
-		public ActionFW() {
-			super("Forward", createResoruceIcon("up.png"));
-			putValue(SHORT_DESCRIPTION, "Forward");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement FW action
-			//connectionManager.sendMessage("R\n");
-		}
-	}
-
-	public class ActionRW extends AbstractAction {
-		private static final long serialVersionUID = -1406217878298940415L;
-
-		public ActionRW() {
-			super("Reverse", createResoruceIcon("down.png"));
-			putValue(SHORT_DESCRIPTION, "Reverse");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement reverse action
-		}
-	}
-
-	public class ActionLeft extends AbstractAction {
-		private static final long serialVersionUID = -1977628799705481765L;
-
-		public ActionLeft() {
-			super("Left", createResoruceIcon("left.png"));
-			putValue(SHORT_DESCRIPTION, "Turn Left");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement turning left action
-		}
-	}
-
-	public class ActionRight extends AbstractAction {
-		private static final long serialVersionUID = 2840797437924278347L;
-
-		public ActionRight() {
-			super("Right", createResoruceIcon("right.png"));
-			putValue(SHORT_DESCRIPTION, "Turn Right");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement turning right action
-		}
-	}
-
-	public class ActionModeIdle extends AbstractAction {
-		private static final long serialVersionUID = -3427170486702088118L;
-
-		public ActionModeIdle() {
-			super("Idle");
-			putValue(SHORT_DESCRIPTION, "Engage Mode Idle");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement mode
-		}
-	}
-
-	public class ActionModeAI extends AbstractAction {
-		private static final long serialVersionUID = 1200599241811124579L;
-
-		public ActionModeAI() {
-			super("AI");
-			putValue(SHORT_DESCRIPTION, "Engage Mode AI");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement mode AI
-		}
-	}
-
-	public class ActionModeScenario extends AbstractAction {
-		private static final long serialVersionUID = -1470362534560221765L;
-
-		public ActionModeScenario() {
-			super("Scenario");
-			putValue(SHORT_DESCRIPTION, "Engage Mode Scenario");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement mode Scenario
-		}
-	}
-
-	public class ActionModeRC extends AbstractAction {
-		private static final long serialVersionUID = -2805793759661430990L;
-
-		public ActionModeRC() {
-			super("Remote Control");
-			putValue(SHORT_DESCRIPTION, "Engage Mode Remote Control");
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			// TODO Implement mode Remote Control
-		}
-	}
-
-	public class ActionPreferences extends AbstractAction {
-		private static final long serialVersionUID = 1799941748235958576L;
-
-		public ActionPreferences() {
-			super("Settings", createResoruceIcon("settings.png"));
-			putValue(SHORT_DESCRIPTION, "Open Settings dialog");
-			putValue(MNEMONIC_KEY, KeyEvent.VK_S);
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			//TODO disconnect if current connection is active
-			if (prefsDialog == null) {
-				prefsDialog = new PrefDialog();
-			}			
-			prefsDialog.showDialog();
-		}
-	}
-
-	public class ActionExit extends AbstractAction {
-		private static final long serialVersionUID = -2775859792316580649L;
-
-		public ActionExit() {
-			super("Exit", createResoruceIcon("exit.png"));
-			putValue(SHORT_DESCRIPTION, "Exit the application");
-			putValue(MNEMONIC_KEY, KeyEvent.VK_X);
-		}
-
-		public void actionPerformed(ActionEvent e) {
-			writeSettings();
-			//release VLC resources on exit
-			if(mediaPlayerComponent!=null) {
-				mediaPlayerComponent.getMediaPlayer().stop();
-				mediaPlayerComponent.release();
-			}
-			frame.setVisible(false);
-			frame.dispose();
-			System.exit(0);
-		}
-	}
-
-	/**
-	 * Load the application settings
-	 */
+	// Load the application settings
 	private void readSettings() {
 		// the window size and position defaults
 		final Rectangle DEFAULT_BOUNDS = new Rectangle(80, 10, 900, 840);
@@ -1067,44 +973,57 @@ public class MainWindow {
 		Rectangle bounds = MainWindow.loadFrameBounds(prefKey, DEFAULT_BOUNDS);
 		frame.setBounds(bounds);
 
+		// load connections list to the combo boxes
 		fillConnectionsCombo();
 
+		// select the active controller
 		RoboRemote.hidManager.setSelectedController(RoboCommandsModel.getSelectedController());
+
+		// rebuild the key bindings according to the user preferences
+		rebuildKeyBindings();
 	}
 
-	/**
-	 * Load the connections list from the preferences and add them to the combo box
-	 * Select the last active one
-	 */
+	// Load the connections list from the preferences and add them to the combo
+	// box Select the last active one
 	public void fillConnectionsCombo() {
 		connectionsComboBox.removeAllItems();
 		Vector<String> connectionsList = RoboCommandsModel.getConnections();
-		for(String s: connectionsList) {
+		for (String s : connectionsList) {
 			connectionsComboBox.addItem(s);
 		}
 
 		connectionsComboBox.setSelectedItem(RoboCommandsModel.getLastUsedConnection());
 	}
 
-	/**
-	 * Store the main window settings
-	 */
+	// Load the key codes from the preferences and create the bindings
+	public void rebuildKeyBindings() {
+		JRootPane rootPane = frame.getRootPane();
+
+		rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).clear();
+		
+		// registering keycodes for all commands
+		for (int i = 0; i < RoboCommandsModel.COMMANDS_COUNT; i++) {
+			rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(RoboCommandsModel.getCommandKey(i),
+					RoboCommandsModel.getCommandTitle(i));
+			System.out.println("Action Bound: "+RoboCommandsModel.getCommandKey(i) + "->" + RoboCommandsModel.getCommandTitle(i));
+		}
+	}
+
+	// Store the main window settings
 	private void writeSettings() {
-		MainWindow.saveFrameBounds(prefKey, frame.getBounds());	
-		if(connectionsComboBox.getSelectedIndex()!=-1) {
+		MainWindow.saveFrameBounds(prefKey, frame.getBounds());
+		if (connectionsComboBox.getSelectedIndex() != -1) {
 			RoboCommandsModel.setLastUsedConnection(connectionsComboBox.getSelectedItem().toString());
 		}
 		RoboCommandsModel.saveSettings();
 	}
 
-	/**
-	 * This method loads the specified frame bounds from the preferences and
-	 * validates if this frame will fit any of the system screens
-	 * 
-	 * @param defaultBounds
-	 *            default frame bounds
-	 * @return a proper frame bounds either from preferences or default
-	 */
+	// This method loads the specified frame bounds from the preferences and
+	// validates if this frame will fit any of the system screens
+	// 
+	// @param defaultBounds
+	//            default frame bounds
+	// @return a proper frame bounds either from preferences or default
 	public static Rectangle loadFrameBounds(final String prefKey, final Rectangle defaultBounds) {
 
 		Preferences windowPrefsNode = RoboRemote.settings.node(prefKey);
@@ -1132,12 +1051,8 @@ public class MainWindow {
 		return finalBounds;
 	}
 
-	/**
-	 * Store the frame bounds in the preferences node specified
-	 * 
-	 * @param bounds
-	 *            the frame bounds
-	 */
+	// Store the frame bounds in the preferences node specified
+	// @param bounds the frame bounds
 	public static void saveFrameBounds(final String prefKey, final Rectangle bounds) {
 		Preferences windowPrefsNode = RoboRemote.settings.node(prefKey);
 		windowPrefsNode.putInt("width", bounds.width); //$NON-NLS-1$
@@ -1146,9 +1061,7 @@ public class MainWindow {
 		windowPrefsNode.putInt("posY", bounds.y); //$NON-NLS-1$
 	}
 
-	/**
-	 * @return the frame
-	 */
+	// @return the frame
 	public JFrame getFrame() {
 		return frame;
 	}

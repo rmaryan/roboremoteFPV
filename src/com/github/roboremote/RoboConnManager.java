@@ -40,6 +40,7 @@ public class RoboConnManager implements Runnable {
 	public interface RoboMessageListener {
 		void messageReceived(final String message);
 	}
+
 	private HashSet<RoboMessageListener> messageListeners = new HashSet<RoboMessageListener>();
 
 	// the robot connection socket
@@ -51,7 +52,6 @@ public class RoboConnManager implements Runnable {
 	private Thread socketReaderThread;
 	private volatile boolean readingSuspended = true;
 
-
 	RoboConnManager() {
 		// create the socket reading thread
 		socketReaderThread = new Thread(this);
@@ -60,18 +60,18 @@ public class RoboConnManager implements Runnable {
 
 	// this is the input stream reading thread runnable
 	public void run() {
-		while(true) {
+		while (true) {
 			try {
 				// reading might be suspended
 				// if so - wait until this change
-				synchronized(this) {
+				synchronized (this) {
 					while (readingSuspended)
 						wait();
-				}						
+				}
 
-				if(inputStream!=null) {
+				if (inputStream != null) {
 					String message = inputStream.readLine();
-					if(message!=null) {
+					if (message != null) {
 						// send the message to all listeners
 						for (RoboMessageListener listener : messageListeners) {
 							SwingUtilities.invokeLater(new Runnable() {
@@ -83,7 +83,7 @@ public class RoboConnManager implements Runnable {
 					}
 				}
 			} catch (SocketException se) {
-				if(!readingSuspended) {
+				if (!readingSuspended) {
 					RoboRemote.logger.error("Connection read error.", se);
 				}
 			} catch (IOException e) {
@@ -97,9 +97,10 @@ public class RoboConnManager implements Runnable {
 	}
 
 	// initialize a new connection closing the old one if needed
-	public synchronized void connect(String address) throws URISyntaxException, IllegalArgumentException, UnknownHostException, IOException {
-		if(socket !=null) {
-			if(socket.isConnected()) {
+	public synchronized void connect(String address)
+			throws URISyntaxException, IllegalArgumentException, UnknownHostException, IOException {
+		if (socket != null) {
+			if (socket.isConnected()) {
 				disconnect();
 			}
 		}
@@ -107,8 +108,7 @@ public class RoboConnManager implements Runnable {
 		URI uri = new URI("telnet://" + address);
 		socket = new Socket(uri.getHost(), uri.getPort());
 		// create input and output streams
-		inputStream = new BufferedReader(new InputStreamReader(
-				socket.getInputStream()));
+		inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		outputStream = new PrintStream(socket.getOutputStream(), true);
 
 		// notify the reading thread to start processing the input stream
@@ -116,10 +116,9 @@ public class RoboConnManager implements Runnable {
 		notify();
 	}
 
-
 	// @return true if socket is connected
 	public boolean isConnected() {
-		if(socket != null) {
+		if (socket != null) {
 			return socket.isConnected();
 		} else {
 			return false;
@@ -127,7 +126,7 @@ public class RoboConnManager implements Runnable {
 	}
 
 	// close the connection
-	public synchronized void disconnect() {		
+	public synchronized void disconnect() {
 		try {
 			readingSuspended = true; // flag the reading thread to stop
 			socket.close(); // close port
@@ -141,8 +140,8 @@ public class RoboConnManager implements Runnable {
 
 	// Sends a message to the remote recipient if it is connected
 	public void sendMessage(String message) {
-		if(socket != null) {
-			if(socket.isConnected()) {
+		if (socket != null) {
+			if (socket.isConnected()) {
 				outputStream.println(message);
 			}
 		}

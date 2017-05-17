@@ -18,9 +18,12 @@
 
 package com.github.roboremote;
 
+import java.awt.event.KeyEvent;
 import java.util.HashMap;
 import java.util.Vector;
 import java.util.prefs.Preferences;
+
+import javax.swing.KeyStroke;
 
 import net.java.games.input.Event;
 
@@ -41,27 +44,27 @@ public class RoboCommandsModel {
 	// constants for the connections and commands lists
 	public static final String[] connectionsColumns = { "Address", "Video Stream" };
 	public static final String[] commandsColumns = { "Command", "Keyboard", "HID Action" };
-	
+
 	// the list of the command codes with the title and default keyboard key
 	public static enum CommandsList {
-		CMD_FORWWARD		("Forward", "W", "W"), 
-		CMD_REVERSE			("Reverse", "S", "S"), 
-		CMD_LEFT			("Left", "A", "A"), 
-		CMD_RIGHT			("Right", "D", "D"), 
-		CMD_LIGHTS_FRONT	("Lights Front", "Z", "LF"), 
-		CMD_LIGHTS_REAR		("Lights Rear", "X", "LR"), 
-		CMD_LIGHTS_SIDES	("Lights Sides", "C", "LS"), 
-		CMD_MODE_IDLE		("Mode Idle", "1", "MI"), 
-		CMD_MODE_AI			("Mode AI", "2", "MA"), 
-		CMD_MODE_SCENARIO	("Mode Scenario", "3", "MS"), 
-		CMD_MODE_RC			("Mode RC", "4", "MR"), 
-		CMD_RESCAN_DISTANCES("Rescan Distances", "E", "R");
+		CMD_FORWWARD("Forward", KeyEvent.VK_W, "W"),
+		CMD_REVERSE("Reverse", KeyEvent.VK_S, "S"),
+		CMD_LEFT("Left", KeyEvent.VK_A, "A"),
+		CMD_RIGHT("Right", KeyEvent.VK_D, "D"),
+		CMD_LIGHTS_FRONT("Lights Front", KeyEvent.VK_Z, "LF"),
+		CMD_LIGHTS_REAR("Lights Rear", KeyEvent.VK_X, "LR"),
+		CMD_LIGHTS_SIDES("Lights Sides", KeyEvent.VK_C, "LS"), 
+		CMD_MODE_IDLE("Mode Idle", KeyEvent.VK_1, "MI"),
+		CMD_MODE_AI("Mode AI", KeyEvent.VK_2, "MA"),
+		CMD_MODE_SCENARIO("Mode Scenario", KeyEvent.VK_3, "MS"),
+		CMD_MODE_RC("Mode RC", KeyEvent.VK_4, "MR"),
+		CMD_RESCAN_DISTANCES("Rescan Distances", KeyEvent.VK_E, "R");
 
 		private final String title;
-		private final String defaultKbCommnd;
+		private final int defaultKbCommnd;
 		private final String remoteCommand;
 
-		CommandsList(String title, String defaultKbCommnd, String remoteCommand) {
+		CommandsList(String title, int defaultKbCommnd, String remoteCommand) {
 			this.title = title;
 			this.defaultKbCommnd = defaultKbCommnd;
 			this.remoteCommand = remoteCommand;
@@ -71,10 +74,10 @@ public class RoboCommandsModel {
 			return title;
 		}
 
-		public String getDefaultKbCommand() {
+		public int getDefaultKbCommand() {
 			return defaultKbCommnd;
 		}
-		
+
 		public String getRemoteCommand() {
 			return remoteCommand;
 		}
@@ -82,30 +85,53 @@ public class RoboCommandsModel {
 
 	// a short way to get the commands count
 	public static final int COMMANDS_COUNT = CommandsList.values().length;
-	
-	// a string wich should terminate all remote commands which are sent to Arduino 
+
+	// a string wich should terminate all remote commands which are sent to
+	// Arduino
 	public static final String REMOTE_CMD_TERM = "\n"; //$NON-NLS-1$
 
-	// all analog deviations from the previous value smaller than this delta will be ignored
+	// all analog deviations from the previous value smaller than this delta
+	// will be ignored
 	private static final float IGNORE_DELTA = 0.03f;
-	
+
 	// container for the list of the last sent values
 	private static HashMap<CommandsList, Float> lastCmdValueMap = new HashMap<CommandsList, Float>();
-	
+
 	// a short way to get the command title
 	public static String getCommandTitle(int cmdID) {
 		return CommandsList.values()[cmdID].getTitle();
 	}
 
 	// a short way to get the command's default keyboard key
-	public static String getCommandDefaultKey(int cmdID) {
+	public static int getCommandDefaultKey(int cmdID) {
 		return CommandsList.values()[cmdID].getDefaultKbCommand();
 	}
 
-	//This transparent container is used to pass the command code together with the optional value from the source to the processing code
+	// a short way to get command's current keystroke string
+	public static String getCommandKeyString(int cmdID) {
+		if (kbCommandsList[cmdID] == 0) {
+			return "<NONE>";
+		} else {
+			return KeyEvent.getKeyText(kbCommandsList[cmdID]);
+		}
+	}
+
+	// a short way to get command's current keycode
+	public static int getCommandKeyCode(int cmdID) {
+		return kbCommandsList[cmdID];
+	}
+
+	// a short way to get command's current keystroke
+	public static KeyStroke getCommandKey(int cmdID) {
+		return KeyStroke.getKeyStroke(kbCommandsList[cmdID], 0);
+	}
+
+	// This transparent container is used to pass the command code together with
+	// the optional value from the source to the processing code
 	public static class CommandRecord {
 		public CommandsList command;
 		public float value;
+
 		CommandRecord(CommandsList command, float value) {
 			this.command = command;
 			this.value = value;
@@ -116,17 +142,19 @@ public class RoboCommandsModel {
 	private static Vector<String> connections = new Vector<String>();
 	private static Vector<String> videoStreams = new Vector<String>();
 	private static String lastUsedConnection = "";
-	private static String[] kbCommandsList = new String[COMMANDS_COUNT];
+	private static int[] kbCommandsList = new int[COMMANDS_COUNT]; // store
+																	// KeyCodes
+																	// here
 	private static String[] hidCommandsList = new String[COMMANDS_COUNT];
 	private static String selectedController = "";
 
-	//these hash maps are used for quick mapping of the incoming events to the command codes
-	private static HashMap<String, CommandsList> kbToCmdMap = new HashMap<String, CommandsList>();
+	// this hash map is used for quick mapping of the incoming events to the
+	// command codes
 	private static HashMap<String, CommandsList> hidToCmdMap = new HashMap<String, CommandsList>();
 
 	// stores values in the settings containers
 	public static void setPreferences(final Vector<String> in_connections, final Vector<String> in_videoStreams,
-			final String[] in_kbCommandsList, final String[] in_hidCommandsList, final String in_selectedController) {
+			final int[] in_kbCommandsList, final String[] in_hidCommandsList, final String in_selectedController) {
 
 		connections.clear();
 		videoStreams.clear();
@@ -155,10 +183,6 @@ public class RoboCommandsModel {
 
 	public static Vector<String> getVideoStreams() {
 		return videoStreams;
-	}
-
-	public static String[] getKbCommandsList() {
-		return kbCommandsList;
 	}
 
 	public static String[] getHidCommandsList() {
@@ -195,7 +219,7 @@ public class RoboCommandsModel {
 		CommandsList[] commandsList = CommandsList.values();
 
 		for (int i = 0; i < COMMANDS_COUNT; i++) {
-			settingsPrefsNode.put(PREFIX_KBD + commandsList[i].getTitle(), kbCommandsList[i]);
+			settingsPrefsNode.putInt(PREFIX_KBD + commandsList[i].getTitle(), kbCommandsList[i]);
 			settingsPrefsNode.put(PREFIX_HID + commandsList[i].getTitle(), hidCommandsList[i]);
 		}
 
@@ -226,12 +250,12 @@ public class RoboCommandsModel {
 		CommandsList[] commandsList = CommandsList.values();
 
 		for (i = 0; i < COMMANDS_COUNT; i++) {
-			kbCommandsList[i] = settingsPrefsNode.get(PREFIX_KBD + commandsList[i].getTitle(), "");
+			kbCommandsList[i] = settingsPrefsNode.getInt(PREFIX_KBD + commandsList[i].getTitle(), -1);
 			hidCommandsList[i] = settingsPrefsNode.get(PREFIX_HID + commandsList[i].getTitle(), "");
 		}
 
 		// if no commands were previously set up - load the defaults
-		if (kbCommandsList[0].equals("")) {
+		if (kbCommandsList[0] == -1) {
 			for (i = 0; i < COMMANDS_COUNT; i++) {
 				kbCommandsList[i] = commandsList[i].getDefaultKbCommand();
 			}
@@ -242,15 +266,14 @@ public class RoboCommandsModel {
 		rebuildHashMaps();
 	}
 
-	// rebuild the hash maps which are used to map quickly controller events to the command codes
+	// rebuild the hash maps which are used to map quickly controller events to
+	// the command codes
 	private static void rebuildHashMaps() {
-		kbToCmdMap.clear();
 		hidToCmdMap.clear();
 
-		CommandsList[] commandsList = CommandsList.values();		
+		CommandsList[] commandsList = CommandsList.values();
 
-		for(int i=0; i<COMMANDS_COUNT; i++) {
-			kbToCmdMap.put(kbCommandsList[i], commandsList[i]);
+		for (int i = 0; i < COMMANDS_COUNT; i++) {
 			hidToCmdMap.put(hidCommandsList[i], commandsList[i]);
 		}
 	}
@@ -265,33 +288,33 @@ public class RoboCommandsModel {
 
 		// analog component
 		if (component.isAnalog()) {
-			String sign = (value>0)?"+":"-";
+			String sign = (value > 0) ? "+" : "-";
 			componentName = sign + componentName;
 		}
-		
+
 		CommandsList command = hidToCmdMap.get(componentName);
-		if(command == null) {
+		if (command == null) {
 			return null;
-		} else {			
+		} else {
 			// debounce the commands
 			Float lastValue = lastCmdValueMap.get(command);
-			if(lastValue != null) {
-				if(component.isAnalog()) {
+			if (lastValue != null) {
+				if (component.isAnalog()) {
 					// don't send a command if the change is insignificant
-					if(Math.abs(lastValue - value)<=IGNORE_DELTA) {
+					if (Math.abs(lastValue - value) <= IGNORE_DELTA) {
 						return null;
 					}
 				} else {
-					// don't send the same command twice 
-					if(value==lastValue) {
+					// don't send the same command twice
+					if (value == lastValue) {
 						return null;
 					}
-				}				
+				}
 			}
-			
+
 			// store the value we are going to send
 			lastCmdValueMap.put(command, value);
-			
+
 			return new CommandRecord(command, value);
 		}
 	}

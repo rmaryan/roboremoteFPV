@@ -24,11 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class RoboRemote {
-	/**
-	 * The primary source of the application core version information.
-	 */
-	public static final String APP_VERSION = "0.0.1"; //$NON-NLS-1$
-
 	public static Logger logger;
 	public static MainWindow mainWindow;
 	public static HIDManager hidManager;

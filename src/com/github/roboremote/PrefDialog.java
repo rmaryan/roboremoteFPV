@@ -63,8 +63,6 @@ import net.java.games.input.Event;
 /**
  * Show, edit and process application preferences
  * 
- * @author Mar'yan Rachynskyy
- *
  */
 public class PrefDialog extends JDialog implements ActionListener {
 	private static final long serialVersionUID = 7042514048632135153L;
@@ -82,12 +80,12 @@ public class PrefDialog extends JDialog implements ActionListener {
 	private Vector<String> dialogConnections = new Vector<String>();
 	private Vector<String> dialogVideoStreams = new Vector<String>();
 	private String[] kbCommandsList = new String[RoboCommandsModel.COMMANDS_COUNT];
+	private int[] kbCommandsCodeList = new int[RoboCommandsModel.COMMANDS_COUNT];
 	private String[] hidCommandsList = new String[RoboCommandsModel.COMMANDS_COUNT];
 
 	// is set to the # of the command which trigger is going to be detected
 	// -1 if no detection in progress
 	private int detectingCommandNumber = -1;
-
 
 	// Create the dialog but don't show it
 	public PrefDialog() {
@@ -106,7 +104,8 @@ public class PrefDialog extends JDialog implements ActionListener {
 
 		// Connections part
 		JPanel p = new JPanel(new GridBagLayout());
-		p.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED), "Stored Connections"));
+		p.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED),
+				"Stored Connections"));
 
 		connectionsTableModel = getConnectionsModel();
 		connectionsTable = new JTable(connectionsTableModel);
@@ -115,12 +114,12 @@ public class PrefDialog extends JDialog implements ActionListener {
 
 		Dimension tablesDimension = new Dimension(360, 360);
 		connectionsTable.setPreferredScrollableViewportSize(tablesDimension);
-		scrollPane.setMinimumSize(new Dimension (tablesDimension));		
+		scrollPane.setMinimumSize(new Dimension(tablesDimension));
 		connectionsTable.setFillsViewportHeight(true);
 
 		GridBagConstraints c = new GridBagConstraints();
 		c.weightx = 1;
-		c.weighty = 1;		
+		c.weighty = 1;
 		c.fill = GridBagConstraints.BOTH;
 		c.gridheight = 2;
 		p.add(scrollPane, c);
@@ -151,7 +150,8 @@ public class PrefDialog extends JDialog implements ActionListener {
 
 		// Commands part
 		JPanel commandsPanel = new JPanel(new GridBagLayout());
-		commandsPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED), "Commands"));
+		commandsPanel.setBorder(
+				BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED), "Commands"));
 
 		commandsTableModel = getCommandsModel();
 		commandsTable = new JTable(commandsTableModel);
@@ -161,13 +161,13 @@ public class PrefDialog extends JDialog implements ActionListener {
 		commandsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
 			private static final long serialVersionUID = -4077708744453572708L;
 
-			public Component getTableCellRendererComponent(JTable table, Object value,
-					boolean isSelected, boolean hasFocus,
-					int row, int column) {
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+					boolean hasFocus, int row, int column) {
 
-				Component renderer = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+				Component renderer = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row,
+						column);
 
-				if(row == detectingCommandNumber) {
+				if (row == detectingCommandNumber) {
 					renderer.setBackground(Color.BLUE);
 					renderer.setForeground(Color.WHITE);
 				} else {
@@ -179,78 +179,78 @@ public class PrefDialog extends JDialog implements ActionListener {
 			}
 		});
 
-
 		scrollPane = new JScrollPane(commandsTable);
 		commandsTable.setPreferredScrollableViewportSize(tablesDimension);
-		scrollPane.setMinimumSize(new Dimension (tablesDimension));		
+		scrollPane.setMinimumSize(new Dimension(tablesDimension));
 		commandsTable.setFillsViewportHeight(true);
 
 		// record the key pressed if the trigger detection is active
-		commandsTable.addKeyListener(
-				new KeyAdapter() {
-					@Override
-					public void keyPressed(KeyEvent e) {
-						if(detectingCommandNumber>-1) {
-							int keyCode = e.getKeyCode();
-							switch(keyCode) {
-							case KeyEvent.VK_ESCAPE: 
-								stopDetectingTrigger();
-								e.consume();
-								break;
-							case KeyEvent.VK_ENTER:
-								// Enter can't be assigned and navigation keys can't be assigned
-								break;
-							default:
-								String componentName = KeyEvent.getKeyText(keyCode);
-
-								// remove duplicates
-								for(int i=0; i<kbCommandsList.length;i++) {
-									if(kbCommandsList[i].equals(componentName)) {
-										commandsTableModel.setValueAt("", i, 1);	
-									}								
-								}								
-
-								// Assign pressed key as a trigger
-								commandsTableModel.setValueAt(componentName, detectingCommandNumber, 1);
-								stopDetectingTrigger();
-								e.consume();
-								break;
+		commandsTable.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				if (detectingCommandNumber > -1) {
+					int keyCode = e.getKeyCode();
+					switch (keyCode) {
+					case KeyEvent.VK_ESCAPE:
+						stopDetectingTrigger();
+						e.consume();
+						break;
+					case KeyEvent.VK_ENTER:
+						// Enter can't be assigned
+						break;
+					default:
+						String componentName = KeyEvent.getKeyText(keyCode);
+						// remove duplicates
+						for (int i = 0; i < kbCommandsList.length; i++) {
+							if (kbCommandsList[i].equals(componentName)) {
+								commandsTableModel.setValueAt("<NONE>", i, 1);
+								kbCommandsCodeList[i] = 0;
 							}
 						}
+
+						// Assign pressed key as a trigger
+						commandsTableModel.setValueAt(componentName, detectingCommandNumber, 1);
+						kbCommandsCodeList[detectingCommandNumber] = keyCode;
+						stopDetectingTrigger();
+						e.consume();
+						break;
 					}
 				}
-				);
+			}
+		});
 
-		// double click should initiate the command trigger detection 
+		// double click should initiate the command trigger detection
 		commandsTable.addMouseListener(new MouseAdapter() {
 			public void mousePressed(MouseEvent e) {
-				if (e.getClickCount() == 2){
+				if (e.getClickCount() == 2) {
 					int selectedRow = commandsTable.getSelectedRow();
-					if(selectedRow>=0) {
-						if(selectedRow!=detectingCommandNumber) {
+					if (selectedRow >= 0) {
+						if (selectedRow != detectingCommandNumber) {
 							startDetectingTrigger(selectedRow);
 						} else {
 							stopDetectingTrigger();
 						}
 					}
-				} 
+				}
 			}
 		});
 
 		// cancel trigger detection if command selection changes
 		ListSelectionListener listener = new ListSelectionListener() {
 			public void valueChanged(ListSelectionEvent e) {
-				if(detectingCommandNumber>-1) {
-					if(e.getFirstIndex() != detectingCommandNumber) {
+				if (detectingCommandNumber > -1) {
+					if (e.getFirstIndex() != detectingCommandNumber) {
 						stopDetectingTrigger();
 					}
 				}
 			}
-		}; 
+		};
 		commandsTable.getSelectionModel().addListSelectionListener(listener);
 
-		// Override the default Enter key behavior - it should initiate command trigger detection
-		commandsTable.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "Enter");
+		// Override the default Enter key behavior - it should initiate command
+		// trigger detection
+		commandsTable.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+				.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "Enter");
 		commandsTable.getActionMap().put("Enter", new AbstractAction() {
 			private static final long serialVersionUID = -5571337618417859516L;
 
@@ -269,25 +269,25 @@ public class PrefDialog extends JDialog implements ActionListener {
 		commandsPanel.add(scrollPane, c);
 
 		// joysticks list
-		hidControllersSelector = new JComboBox<String>(RoboRemote.hidManager.getControllersList());		
+		hidControllersSelector = new JComboBox<String>(RoboRemote.hidManager.getControllersList());
 		hidControllersSelector.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent event) {
-				
-				if(detectingCommandNumber>-1) {
+
+				if (detectingCommandNumber > -1) {
 					stopDetectingTrigger();
 				}
-				
+
 				String selectedControler = hidControllersSelector.getSelectedItem().toString();
-				
-				if(!selectedControler.equals(RoboRemote.hidManager.getSelectedController())) {
+
+				if (!selectedControler.equals(RoboRemote.hidManager.getSelectedController())) {
 					RoboRemote.hidManager.setSelectedController(selectedControler);
-					
-					//clean up all the pre-selected HID triggers
-					for(int i=0; i<hidCommandsList.length;i++) {
-						hidCommandsList[i] = "";						
+
+					// clean up all the pre-selected HID triggers
+					for (int i = 0; i < hidCommandsList.length; i++) {
+						hidCommandsList[i] = "";
 					}
-					
+
 					commandsTableModel.fireTableDataChanged();
 				}
 			}
@@ -300,9 +300,9 @@ public class PrefDialog extends JDialog implements ActionListener {
 		c.insets.set(5, 5, 5, 5);
 		commandsPanel.add(hidControllersSelector, c);
 
-		c.weightx = 0;		
-		c.gridx = 0;	
-		commandsPanel.add(new JLabel("Controller:"), c);	
+		c.weightx = 0;
+		c.gridx = 0;
+		commandsPanel.add(new JLabel("Controller:"), c);
 
 		add(commandsPanel, BorderLayout.LINE_END);
 
@@ -343,51 +343,54 @@ public class PrefDialog extends JDialog implements ActionListener {
 			@Override
 			public void actionPerformed(Event e) {
 				// Handle the main joystick input here
-				if(detectingCommandNumber>-1) {
-					float value = e.getValue();					
-					if(e.getComponent().isAnalog()) {
+				if (detectingCommandNumber > -1) {
+					float value = e.getValue();
+					if (e.getComponent().isAnalog()) {
 						// analog axes are allowed only for directional commands
-						if(detectingCommandNumber<4) {
+						if (detectingCommandNumber < 4) {
 							// detect only edge deviations from zero
-							if((value > 0.5) || (value < -0.5)) {
+							if ((value > 0.5) || (value < -0.5)) {
 
-								String sign = (value>0)?"+":"-";
-								String oppositeSign = (value<0)?"+":"-";
+								String sign = (value > 0) ? "+" : "-";
+								String oppositeSign = (value < 0) ? "+" : "-";
 
 								String componentName = e.getComponent().getName();
 
-								// this is the ID of the sibling command to use the same axis
-								int pairCommand = (detectingCommandNumber%2==0)?detectingCommandNumber+1:detectingCommandNumber-1;
+								// this is the ID of the sibling command to use
+								// the same axis
+								int pairCommand = (detectingCommandNumber % 2 == 0) ? detectingCommandNumber + 1
+										: detectingCommandNumber - 1;
 
 								// record new trigger
-								commandsTableModel.setValueAt(sign+componentName, detectingCommandNumber, 2);		
-								commandsTableModel.setValueAt(oppositeSign+componentName, pairCommand, 2);
+								commandsTableModel.setValueAt(sign + componentName, detectingCommandNumber, 2);
+								commandsTableModel.setValueAt(oppositeSign + componentName, pairCommand, 2);
 
 								// remove duplicates
-								int possibleDuplicates = (detectingCommandNumber>1)?0:2;  
-								if(hidCommandsList[detectingCommandNumber].equals(hidCommandsList[possibleDuplicates]) || 
-										hidCommandsList[detectingCommandNumber].equals(hidCommandsList[possibleDuplicates+1])) {
-									commandsTableModel.setValueAt("",possibleDuplicates,2);
-									commandsTableModel.setValueAt("",possibleDuplicates+1,2);
-								}								
+								int possibleDuplicates = (detectingCommandNumber > 1) ? 0 : 2;
+								if (hidCommandsList[detectingCommandNumber].equals(hidCommandsList[possibleDuplicates])
+										|| hidCommandsList[detectingCommandNumber]
+												.equals(hidCommandsList[possibleDuplicates + 1])) {
+									commandsTableModel.setValueAt("", possibleDuplicates, 2);
+									commandsTableModel.setValueAt("", possibleDuplicates + 1, 2);
+								}
 
 								stopDetectingTrigger();
 							}
 						}
 					} else {
 						// this is a key and it is pressed
-						if(value==1F) {
+						if (value == 1F) {
 							String componentName = e.getComponent().getName();
 
 							// remove duplicates
-							for(int i=0; i<hidCommandsList.length;i++) {
-								if(hidCommandsList[i].equals(componentName)) {
-									commandsTableModel.setValueAt("", i, 2);	
-								}								
+							for (int i = 0; i < hidCommandsList.length; i++) {
+								if (hidCommandsList[i].equals(componentName)) {
+									commandsTableModel.setValueAt("", i, 2);
+								}
 							}
 
 							// store the trigger
-							commandsTableModel.setValueAt(componentName, detectingCommandNumber, 2);								
+							commandsTableModel.setValueAt(componentName, detectingCommandNumber, 2);
 
 							stopDetectingTrigger();
 						}
@@ -398,25 +401,36 @@ public class PrefDialog extends JDialog implements ActionListener {
 	}
 
 	// returns a table model for the connections JTable
-	public AbstractTableModel getConnectionsModel() {		
+	public AbstractTableModel getConnectionsModel() {
 		return new AbstractTableModel() {
 			private static final long serialVersionUID = -7725018785657406648L;
+
 			public String getColumnName(int col) {
 				return RoboCommandsModel.connectionsColumns[col];
 			}
-			public int getRowCount() { return dialogConnections.size(); }
-			public int getColumnCount() { return RoboCommandsModel.connectionsColumns.length; }
+
+			public int getRowCount() {
+				return dialogConnections.size();
+			}
+
+			public int getColumnCount() {
+				return RoboCommandsModel.connectionsColumns.length;
+			}
+
 			public Object getValueAt(int row, int col) {
-				if(col==0) {
+				if (col == 0) {
 					return dialogConnections.elementAt(row);
 				} else {
 					return dialogVideoStreams.elementAt(row);
 				}
 			}
-			public boolean isCellEditable(int row, int col)
-			{ return true; }
+
+			public boolean isCellEditable(int row, int col) {
+				return true;
+			}
+
 			public void setValueAt(Object value, int row, int col) {
-				if(col==0) {
+				if (col == 0) {
 					dialogConnections.setElementAt(value.toString(), row);
 				} else {
 					dialogVideoStreams.setElementAt(value.toString(), row);
@@ -430,25 +444,40 @@ public class PrefDialog extends JDialog implements ActionListener {
 	public AbstractTableModel getCommandsModel() {
 		return new AbstractTableModel() {
 			private static final long serialVersionUID = 7038261304559556915L;
+
 			public String getColumnName(int col) {
 				return RoboCommandsModel.commandsColumns[col];
 			}
-			public int getRowCount() { return RoboCommandsModel.COMMANDS_COUNT; }
-			public int getColumnCount() { return RoboCommandsModel.commandsColumns.length; }
+
+			public int getRowCount() {
+				return RoboCommandsModel.COMMANDS_COUNT;
+			}
+
+			public int getColumnCount() {
+				return RoboCommandsModel.commandsColumns.length;
+			}
+
 			public Object getValueAt(int row, int col) {
-				switch(col) {
-				case 0: return RoboCommandsModel.getCommandTitle(row);
-				case 1: return kbCommandsList[row];
-				case 2: return hidCommandsList[row];
-				default: return "";
+				switch (col) {
+				case 0:
+					return RoboCommandsModel.getCommandTitle(row);
+				case 1:
+					return kbCommandsList[row];
+				case 2:
+					return hidCommandsList[row];
+				default:
+					return "";
 				}
 			}
-			public boolean isCellEditable(int row, int col)
-			{ return false; }
+
+			public boolean isCellEditable(int row, int col) {
+				return false;
+			}
+
 			public void setValueAt(Object value, int row, int col) {
-				if(col==1) {
+				if (col == 1) {
 					kbCommandsList[row] = value.toString();
-				} else if(col==2) {
+				} else if (col == 2) {
 					hidCommandsList[row] = value.toString();
 				}
 			}
@@ -471,38 +500,40 @@ public class PrefDialog extends JDialog implements ActionListener {
 		detectingCommandNumber = -1;
 		if (event != null) {
 			String command = "" + event.getActionCommand(); //$NON-NLS-1$
-			if (command.equals("Defaults")) { //$NON-NLS-1$				
-				for(int i=0; i<RoboCommandsModel.COMMANDS_COUNT; i++) {
-					kbCommandsList[i] = RoboCommandsModel.getCommandDefaultKey(i);
+			if (command.equals("Defaults")) { //$NON-NLS-1$
+				for (int i = 0; i < RoboCommandsModel.COMMANDS_COUNT; i++) {
+					kbCommandsCodeList[i] = RoboCommandsModel.getCommandDefaultKey(i);
+					kbCommandsList[i] = KeyEvent.getKeyText(kbCommandsCodeList[i]);
 					hidCommandsList[i] = "";
 				}
 				commandsTableModel.fireTableDataChanged();
 			} else if (command.equals("OK")) { //$NON-NLS-1$
-				RoboCommandsModel.setPreferences(dialogConnections,
-						dialogVideoStreams,
-						kbCommandsList,
-						hidCommandsList,
-						hidControllersSelector.getSelectedItem().toString());
+				RoboCommandsModel.setPreferences(dialogConnections, dialogVideoStreams, kbCommandsCodeList,
+						hidCommandsList, "" + hidControllersSelector.getSelectedItem());
 				RoboCommandsModel.saveSettings();
-				
+
 				// push what is needed to the main window
 				RoboRemote.mainWindow.fillConnectionsCombo();
 				
-				// save the dialog size and position, borrow a method from the main window
-				MainWindow.saveFrameBounds(prefKey, getBounds());				
-				
-				setVisible(false);				
+				// rebuild the key bindings according to the user preferences
+				RoboRemote.mainWindow.rebuildKeyBindings();
+
+				// save the dialog size and position, borrow a method from the
+				// main window
+				MainWindow.saveFrameBounds(prefKey, getBounds());
+
+				setVisible(false);
 			} else if (command.equals("AddConnection")) { //$NON-NLS-1$
 				dialogConnections.add("");
 				dialogVideoStreams.add("");
 				connectionsTableModel.fireTableDataChanged();
-			}  else if (command.equals("RemoveConnection")) { //$NON-NLS-1$
-				int selectedRow = connectionsTable.getSelectedRow(); 
-				if(selectedRow > -1) {
+			} else if (command.equals("RemoveConnection")) { //$NON-NLS-1$
+				int selectedRow = connectionsTable.getSelectedRow();
+				if (selectedRow > -1) {
 					dialogConnections.remove(selectedRow);
 					dialogVideoStreams.remove(selectedRow);
 					connectionsTableModel.fireTableDataChanged();
-				}					
+				}
 			} else {
 				// save the dialog size and position
 				MainWindow.saveFrameBounds(prefKey, getBounds());
@@ -513,16 +544,19 @@ public class PrefDialog extends JDialog implements ActionListener {
 
 	// initialize the the dialog and make it visible
 	public void showDialog() {
-		// Load the fresh settings		
+		// Load the fresh settings
 		dialogConnections.clear();
 		dialogVideoStreams.clear();
 		dialogConnections.addAll(RoboCommandsModel.getConnections());
 		dialogVideoStreams.addAll(RoboCommandsModel.getVideoStreams());
-		kbCommandsList = RoboCommandsModel.getKbCommandsList();
+		for (int i = 0; i < kbCommandsList.length; i++) {
+			kbCommandsList[i] = RoboCommandsModel.getCommandKeyString(i);
+			kbCommandsCodeList[i] = RoboCommandsModel.getCommandKeyCode(i);
+		}
 		hidCommandsList = RoboCommandsModel.getHidCommandsList();
-		
+
 		hidControllersSelector.setSelectedItem(RoboCommandsModel.getSelectedController());
-		
+
 		setVisible(true);
 	}
 

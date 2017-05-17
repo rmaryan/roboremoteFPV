@@ -30,15 +30,15 @@ import net.java.games.input.ControllerEnvironment;
 import net.java.games.input.Event;
 
 /**
- * This class wraps all the HID-related activities. 
- *  
+ * This class wraps all the HID-related activities.
+ * 
  */
 public class HIDManager {
 
 	// the list of the supported controller types
 	private HashSet<Controller.Type> supportedControlerTypes = null;
 	// the list of the controllers detected in the system
-	private HashMap<String,Controller> controllersList = null;
+	private HashMap<String, Controller> controllersList = null;
 
 	// Selected controller
 	private Controller selectedController = null;
@@ -54,7 +54,9 @@ public class HIDManager {
 	public interface HIDEventListener {
 		void actionPerformed(Event e);
 	}
-	private HashSet<HIDEventListener> eventListeners = new HashSet<HIDEventListener>(); 
+
+	// storage for the registered listeners
+	private HashSet<HIDEventListener> eventListeners = new HashSet<HIDEventListener>();
 
 	public HIDManager() {
 		// generate list of the supported controlers
@@ -65,17 +67,20 @@ public class HIDManager {
 		supportedControlerTypes.add(Controller.Type.STICK);
 		supportedControlerTypes.add(Controller.Type.WHEEL);
 
-		controllersList = new HashMap<String,Controller>();
+		controllersList = new HashMap<String, Controller>();
 
-		// "JInput does not rescan the controllers. It's focus is as a games API, most gamers have their hardware plugged in when they start a game."
+		// "JInput does not rescan the controllers. It's focus is as a games
+		// API, most gamers have their hardware plugged in when they start a
+		// game."
 		// http://www.java-gaming.org/index.php?topic=21694.0
-		// Let's not refresh the list then - generate everything at the beginning
+		// Let's not refresh the list every time - generate everything at the
+		// beginning
 		Controller[] allControllers = ControllerEnvironment.getDefaultEnvironment().getControllers();
 
 		// store the controllers list
 		for (int i = 0; i < allControllers.length; i++) {
-			if(supportedControlerTypes.contains(allControllers[i].getType())) {
-				controllersList.put(allControllers[i].getName(),allControllers[i]);
+			if (supportedControlerTypes.contains(allControllers[i].getType())) {
+				controllersList.put(allControllers[i].getName(), allControllers[i]);
 			}
 		}
 
@@ -84,7 +89,7 @@ public class HIDManager {
 		this.pollTimer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
-				if(selectedController!=null) {
+				if (selectedController != null) {
 					selectedController.poll();
 					Event e = new Event();
 
@@ -93,11 +98,11 @@ public class HIDManager {
 
 						net.java.games.input.Component component = e.getComponent();
 
-						if(component.isAnalog()) {
+						if (component.isAnalog()) {
 							float value = e.getValue();
 
 							// check if we need to stick to zero
-							if(java.lang.Math.abs(value)<ZERO_DEAD_ZONE) {
+							if (java.lang.Math.abs(value) < ZERO_DEAD_ZONE) {
 								value = 0;
 								e.set(e.getComponent(), 0, e.getNanos());
 							}
@@ -111,8 +116,8 @@ public class HIDManager {
 								}
 							});
 						}
-					}            	 
-				}                
+					}
+				}
 			}
 		}, 0, TIMER_PERIOD);
 
@@ -127,10 +132,10 @@ public class HIDManager {
 	}
 
 	public String getSelectedController() {
-		if(selectedController == null) {
+		if (selectedController == null) {
 			return "";
 		} else {
-			return 	selectedController.getName();
+			return selectedController.getName();
 		}
 	}
 
@@ -139,4 +144,3 @@ public class HIDManager {
 	}
 
 }
-
