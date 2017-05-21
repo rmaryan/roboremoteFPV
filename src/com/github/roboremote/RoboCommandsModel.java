@@ -148,8 +148,9 @@ public class RoboCommandsModel {
 	private static String[] hidCommandsList = new String[COMMANDS_COUNT];
 	private static String selectedController = "";
 
-	// this hash map is used for quick mapping of the incoming events to the
+	// these hash maps are used for quick mapping of the incoming events to the
 	// command codes
+	private static HashMap<Integer, CommandsList> keyCodeToCmdMap = new HashMap<Integer, CommandsList>();
 	private static HashMap<String, CommandsList> hidToCmdMap = new HashMap<String, CommandsList>();
 
 	// stores values in the settings containers
@@ -266,18 +267,31 @@ public class RoboCommandsModel {
 		rebuildHashMaps();
 	}
 
-	// rebuild the hash maps which are used to map quickly controller events to
+	// rebuild the hash maps which are used to map quickly keyboard and controller events to
 	// the command codes
 	private static void rebuildHashMaps() {
+		keyCodeToCmdMap.clear();
 		hidToCmdMap.clear();
 
 		CommandsList[] commandsList = CommandsList.values();
 
 		for (int i = 0; i < COMMANDS_COUNT; i++) {
+			keyCodeToCmdMap.put(kbCommandsList[i], commandsList[i]);
 			hidToCmdMap.put(hidCommandsList[i], commandsList[i]);
 		}
 	}
-
+	
+	// Return the command code with argument if needed which corresponds to the keyboard code
+	// or null if command should be ignored
+	public static CommandRecord keyEventToCommandRecord(KeyEvent e) {
+		CommandsList command = keyCodeToCmdMap.get(e.getKeyCode());
+		if(command == null) {
+			return null;
+		} else {
+			return new CommandRecord(command, 1);
+		}
+	}
+	
 	// Return the command code with argument if needed which is parsed from the
 	// HID event or null if command should be ignored
 	public static CommandRecord hidEventToCommandRecord(Event e) {

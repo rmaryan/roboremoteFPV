@@ -26,6 +26,8 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.KeyEventDispatcher;
+import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
@@ -40,20 +42,17 @@ import java.util.TimerTask;
 import java.util.Vector;
 import java.util.prefs.Preferences;
 
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JRootPane;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
@@ -65,7 +64,6 @@ import javax.swing.border.EtchedBorder;
 
 import com.github.roboremote.HIDManager.HIDEventListener;
 import com.github.roboremote.RoboCommandsModel.CommandRecord;
-import com.github.roboremote.RoboCommandsModel.CommandsList;
 import com.github.roboremote.RoboConnManager.RoboMessageListener;
 
 import net.java.games.input.Event;
@@ -725,27 +723,26 @@ public class MainWindow {
 	// Initialize event handlers
 	private void initializeActions() {
 		// initialize key mapping - the actions map part here only
-		JRootPane rootPane = frame.getRootPane();
 
-		AbstractAction uiCommandAction = new AbstractAction() {
-			private static final long serialVersionUID = 6425138801681596694L;
-
+		// KeyEventDispatcher is the only way to handle all keys including the modifiers
+		KeyEventDispatcher keyEventDispatcher = new KeyEventDispatcher() {
 			@Override
-			public void actionPerformed(ActionEvent e) {
-				// everything typed in the command field should be ignored
-				if (!commandTextField.hasFocus()) {
-					// TODO complete this
-					System.out.println("Action triggered: " + e.getActionCommand());
-					System.out.println("Action triggered: " + e.toString());
-				}
+			public boolean dispatchKeyEvent(KeyEvent e) {
+		        if (e.getID() == KeyEvent.KEY_PRESSED) {
+					// everything typed in the command field should be ignored
+					if (!commandTextField.hasFocus()) {
+						CommandRecord cRec = RoboCommandsModel.keyEventToCommandRecord(e);
+						if (cRec != null) {
+							processUserCommand(cRec);
+						}
+					}
+	            }
+	            return false;
 			}
 		};
 
-		// registering handler for all the bindings
-		for (CommandsList command : CommandsList.values()) {
-			rootPane.getActionMap().put(command.getTitle(), uiCommandAction);
-			System.out.println("Action armed: "+command.getTitle());
-		}
+		KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        manager.addKeyEventDispatcher(keyEventDispatcher);
 
 		// initialize the joystick listener
 		RoboRemote.hidManager.addEventListener(new HIDEventListener() {
@@ -978,9 +975,6 @@ public class MainWindow {
 
 		// select the active controller
 		RoboRemote.hidManager.setSelectedController(RoboCommandsModel.getSelectedController());
-
-		// rebuild the key bindings according to the user preferences
-		rebuildKeyBindings();
 	}
 
 	// Load the connections list from the preferences and add them to the combo
@@ -993,20 +987,6 @@ public class MainWindow {
 		}
 
 		connectionsComboBox.setSelectedItem(RoboCommandsModel.getLastUsedConnection());
-	}
-
-	// Load the key codes from the preferences and create the bindings
-	public void rebuildKeyBindings() {
-		JRootPane rootPane = frame.getRootPane();
-
-		rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).clear();
-		
-		// registering keycodes for all commands
-		for (int i = 0; i < RoboCommandsModel.COMMANDS_COUNT; i++) {
-			rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(RoboCommandsModel.getCommandKey(i),
-					RoboCommandsModel.getCommandTitle(i));
-			System.out.println("Action Bound: "+RoboCommandsModel.getCommandKey(i) + "->" + RoboCommandsModel.getCommandTitle(i));
-		}
 	}
 
 	// Store the main window settings

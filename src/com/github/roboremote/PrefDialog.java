@@ -515,9 +515,6 @@ public class PrefDialog extends JDialog implements ActionListener {
 				// push what is needed to the main window
 				RoboRemote.mainWindow.fillConnectionsCombo();
 				
-				// rebuild the key bindings according to the user preferences
-				RoboRemote.mainWindow.rebuildKeyBindings();
-
 				// save the dialog size and position, borrow a method from the
 				// main window
 				MainWindow.saveFrameBounds(prefKey, getBounds());
