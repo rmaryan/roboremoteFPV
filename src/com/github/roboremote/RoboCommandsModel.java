@@ -20,6 +20,7 @@ package com.github.roboremote;
 
 import java.awt.event.KeyEvent;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Vector;
 import java.util.prefs.Preferences;
 
@@ -47,7 +48,7 @@ public class RoboCommandsModel {
 
 	// the list of the command codes with the title and default keyboard key
 	public static enum CommandsList {
-		CMD_FORWWARD("Forward", KeyEvent.VK_W, "W"),
+		CMD_FORWARD("Forward", KeyEvent.VK_W, "W"),
 		CMD_REVERSE("Reverse", KeyEvent.VK_S, "S"),
 		CMD_LEFT("Left", KeyEvent.VK_A, "A"),
 		CMD_RIGHT("Right", KeyEvent.VK_D, "D"),
@@ -150,6 +151,7 @@ public class RoboCommandsModel {
 
 	// these hash maps are used for quick mapping of the incoming events to the
 	// command codes
+	private static HashSet<Integer> wasdKeys = new HashSet<Integer>();
 	private static HashMap<Integer, CommandsList> keyCodeToCmdMap = new HashMap<Integer, CommandsList>();
 	private static HashMap<String, CommandsList> hidToCmdMap = new HashMap<String, CommandsList>();
 
@@ -272,10 +274,14 @@ public class RoboCommandsModel {
 	private static void rebuildHashMaps() {
 		keyCodeToCmdMap.clear();
 		hidToCmdMap.clear();
+		wasdKeys.clear();
 
 		CommandsList[] commandsList = CommandsList.values();
 
 		for (int i = 0; i < COMMANDS_COUNT; i++) {
+			if(i<4) {
+				wasdKeys.add(kbCommandsList[i]);
+			}
 			keyCodeToCmdMap.put(kbCommandsList[i], commandsList[i]);
 			hidToCmdMap.put(hidCommandsList[i], commandsList[i]);
 		}
@@ -290,6 +296,19 @@ public class RoboCommandsModel {
 		} else {
 			return new CommandRecord(command, 1);
 		}
+	}
+	
+	// Returns true if the key code specified corresponds to the WASD command (Forward, Reverse, Left, Right)
+	public static boolean isWASDKey(Integer keyCode) {
+		return wasdKeys.contains(keyCode);
+	}
+
+	// Returns true if the command specified corresponds to the WASD command (Forward, Reverse, Left, Right)
+	public static boolean isWASDCommand(CommandsList command) {
+		return (command == CommandsList.CMD_FORWARD) ||
+				(command == CommandsList.CMD_REVERSE) ||
+				(command == CommandsList.CMD_LEFT) ||
+				(command == CommandsList.CMD_RIGHT);
 	}
 	
 	// Return the command code with argument if needed which is parsed from the

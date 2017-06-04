@@ -39,6 +39,7 @@ public class RoboConnManager implements Runnable {
 	// Event listeners declarations
 	public interface RoboMessageListener {
 		void messageReceived(final String message);
+		void disconnected();
 	}
 
 	private HashSet<RoboMessageListener> messageListeners = new HashSet<RoboMessageListener>();
@@ -84,15 +85,31 @@ public class RoboConnManager implements Runnable {
 				}
 			} catch (SocketException se) {
 				if (!readingSuspended) {
+					disconnect();
+					sendDisconnectedMessage();
 					RoboRemote.logger.error("Connection read error.", se);
 				}
 			} catch (IOException e) {
 				// something wrong with the stream
+				disconnect();
+				sendDisconnectedMessage();
 				RoboRemote.logger.error("Connection read error.", e);
 			} catch (InterruptedException ie) {
 				// the reading was interrupted
 				// that is OK
 			}
+		}
+	}
+
+	// notifies listeners about the connection drop
+	private void sendDisconnectedMessage() {
+		// send the message to all listeners
+		for (RoboMessageListener listener : messageListeners) {
+			SwingUtilities.invokeLater(new Runnable() {
+				public void run() {
+					listener.disconnected();
+				}
+			});
 		}
 	}
 
@@ -127,14 +144,16 @@ public class RoboConnManager implements Runnable {
 
 	// close the connection
 	public synchronized void disconnect() {
-		try {
-			readingSuspended = true; // flag the reading thread to stop
-			socket.close(); // close port
-			socket = null;
-			inputStream = null;
-			outputStream = null;
-		} catch (IOException e) {
-			RoboRemote.logger.error("Connection lost.", e);
+		if(socket!=null) {
+			try {
+				readingSuspended = true; // flag the reading thread to stop
+				socket.close(); // close port
+				socket = null;
+				inputStream = null;
+				outputStream = null;
+			} catch (IOException e) {
+				RoboRemote.logger.error("Connection lost.", e);
+			}
 		}
 	}
 

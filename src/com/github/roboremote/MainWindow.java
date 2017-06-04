@@ -44,6 +44,7 @@ import java.util.prefs.Preferences;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.ButtonModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -61,9 +62,12 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
 import javax.swing.border.EtchedBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import com.github.roboremote.HIDManager.HIDEventListener;
 import com.github.roboremote.RoboCommandsModel.CommandRecord;
+import com.github.roboremote.RoboCommandsModel.CommandsList;
 import com.github.roboremote.RoboConnManager.RoboMessageListener;
 
 import net.java.games.input.Event;
@@ -71,6 +75,7 @@ import uk.co.caprica.vlcj.component.EmbeddedMediaPlayerComponent;
 import uk.co.caprica.vlcj.discovery.NativeDiscovery;
 import uk.co.caprica.vlcj.player.MediaPlayer;
 import uk.co.caprica.vlcj.player.MediaPlayerEventAdapter;
+import uk.co.caprica.vlcj.player.embedded.EmbeddedMediaPlayer;
 
 /*
  * Application main window class.
@@ -98,6 +103,9 @@ public class MainWindow {
 	private JLabel videoIndicator;
 
 	private JRadioButton idleButton;
+	private JRadioButton aiButton;
+	private JRadioButton scenarioButton;
+	private JRadioButton rcButton;
 	private JLabel[] modeIndicators = new JLabel[4];
 
 	private JLabel robotLabel;
@@ -113,6 +121,10 @@ public class MainWindow {
 	private JLabel rearLightIndicator;
 	private JLabel sideLightIndicator;
 
+	private boolean forwardButtonPressed = false,
+			reverseButtonPressed = false, 
+			leftButtonPressed = false, 
+			rightButtonPressed = false;
 	private JSlider turningRate;
 	private JSlider speedRate;
 
@@ -263,7 +275,7 @@ public class MainWindow {
 		});
 		p.add(idleButton, c);
 
-		JRadioButton aiButton = new JRadioButton("AI");
+		aiButton = new JRadioButton("AI");
 		aiButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -273,7 +285,7 @@ public class MainWindow {
 		c.gridy = 1;
 		p.add(aiButton, c);
 
-		JRadioButton scenarioButton = new JRadioButton("Scenario");
+		scenarioButton = new JRadioButton("Scenario");
 		scenarioButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -283,7 +295,7 @@ public class MainWindow {
 		c.gridy = 2;
 		p.add(scenarioButton, c);
 
-		JRadioButton rcButton = new JRadioButton("RC");
+		rcButton = new JRadioButton("RC");
 		rcButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -372,7 +384,14 @@ public class MainWindow {
 		c.gridwidth = 2;
 		c.gridy = 3;
 		c.gridx = 1;
-		p.add(new JButton(createResoruceIcon("Refresh.png")), c);
+
+		JButton refreshButton = new JButton(createResoruceIcon("Refresh.png")); 
+		refreshButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_RESCAN_DISTANCES, 0));
+			}
+		});
+		p.add(refreshButton, c);
 
 		// Placing the pane to the parent container
 		c = new GridBagConstraints();
@@ -443,10 +462,10 @@ public class MainWindow {
 					} else {
 						connectionIndicator.setIcon(grayLightIcon);						
 						if (connectionsComboBox.getSelectedIndex() != -1) {
-							
+
 							connectionCheckBox.setEnabled(false);
 							connectionsComboBox.setEnabled(false);
-							
+
 							// let's start connection in background, so the main window does not freeze
 							SwingWorker<Object, Object> swingWorker = new SwingWorker<Object, Object>() {
 								private volatile String connectionErrorMessage = null;
@@ -565,7 +584,47 @@ public class MainWindow {
 		c.weighty = 0.1;
 		c.weightx = 0.1;
 
+		ChangeListener wasdButtonChangeListener = new ChangeListener () {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				ButtonModel model = (ButtonModel) e.getSource();				
+				String actionCommand = model.getActionCommand();
+				boolean wasPressed = false;
+				boolean nowPressed = model.isPressed();
+				CommandsList command = null;
+
+
+				switch(actionCommand) {
+				case "W": 
+					wasPressed = forwardButtonPressed;
+					command = CommandsList.CMD_FORWARD;
+					break;
+				case "S":
+					wasPressed = reverseButtonPressed;
+					command = CommandsList.CMD_REVERSE;
+					break;
+				case "A": 
+					wasPressed = leftButtonPressed;
+					command = CommandsList.CMD_LEFT;
+					break;
+				case "D": 
+					wasPressed = rightButtonPressed;
+					command = CommandsList.CMD_RIGHT;
+					break;
+				}
+
+				if(wasPressed!=nowPressed) {
+					CommandRecord cRec = new CommandRecord(command, nowPressed?1:0);
+					setWASDFlags(cRec.command, nowPressed);
+					processUserCommand(cRec);
+				}				
+			}			
+		};
+
+		// handle WASD commands separately, detecting button pressed and released events
 		JButton b = new JButton(createResoruceIcon("left.png"));
+		b.getModel().addChangeListener(wasdButtonChangeListener);
+		b.setActionCommand("A");
 		c.gridy = 1;
 		p.add(b, c);
 
@@ -588,6 +647,8 @@ public class MainWindow {
 		p.add(turningRate, c);
 
 		b = new JButton(createResoruceIcon("up.png"));
+		b.getModel().addChangeListener(wasdButtonChangeListener);
+		b.setActionCommand("W");
 		c.gridx = 1;
 		c.gridy = 0;
 		c.gridwidth = 1;
@@ -595,10 +656,14 @@ public class MainWindow {
 		p.add(b, c);
 
 		b = new JButton(createResoruceIcon("down.png"));
+		b.getModel().addChangeListener(wasdButtonChangeListener);
+		b.setActionCommand("S");
 		c.gridy = 2;
 		p.add(b, c);
 
 		b = new JButton(createResoruceIcon("right.png"));
+		b.getModel().addChangeListener(wasdButtonChangeListener);
+		b.setActionCommand("D");
 		c.gridx = 2;
 		c.gridy = 1;
 		p.add(b, c);
@@ -682,8 +747,10 @@ public class MainWindow {
 			mediaPlayerComponent = new EmbeddedMediaPlayerComponent();
 			topLeftPane.add(mediaPlayerComponent, BorderLayout.CENTER);
 
+			EmbeddedMediaPlayer mediaPlayer = mediaPlayerComponent.getMediaPlayer(); 
+
 			// listen to the video status and indicate it in the UI
-			mediaPlayerComponent.getMediaPlayer().addMediaPlayerEventListener(new MediaPlayerEventAdapter() {
+			mediaPlayer.addMediaPlayerEventListener(new MediaPlayerEventAdapter() {
 				@Override
 				public void playing(MediaPlayer mediaPlayer) {
 					videoIndicator.setIcon(greenLightIcon);
@@ -703,6 +770,11 @@ public class MainWindow {
 							"Video Error", JOptionPane.ERROR_MESSAGE);
 				}
 			});
+
+			// eliminate the network caching delay
+			String[] standardMediaOptions = {":network-caching=10", ":live-caching=10", ":rtsp-caching=10"};
+			mediaPlayer.setStandardMediaOptions(standardMediaOptions);
+
 		} else {
 			JLabel errorLabel = new JLabel("VLC not found. Please reinstall VLC and try again.");
 			errorLabel.setForeground(Color.RED);
@@ -728,21 +800,37 @@ public class MainWindow {
 		KeyEventDispatcher keyEventDispatcher = new KeyEventDispatcher() {
 			@Override
 			public boolean dispatchKeyEvent(KeyEvent e) {
-		        if (e.getID() == KeyEvent.KEY_PRESSED) {
-					// everything typed in the command field should be ignored
-					if (!commandTextField.hasFocus()) {
+				// handle WASD commands separately, detecting key pressed and released events
+				// everything typed in the command field should be ignored
+				if (!commandTextField.hasFocus()) {
+					if (e.getID() == KeyEvent.KEY_PRESSED) {
 						CommandRecord cRec = RoboCommandsModel.keyEventToCommandRecord(e);
 						if (cRec != null) {
+							if(RoboCommandsModel.isWASDKey(e.getKeyCode())) {
+								setWASDFlags(cRec.command, true);
+							}
 							processUserCommand(cRec);
 						}
-					}
-	            }
-	            return false;
+					} else {
+						if (e.getID() == KeyEvent.KEY_RELEASED) {
+							// WASD keys should catch a key release event as well							
+							if(RoboCommandsModel.isWASDKey(e.getKeyCode())) {																
+								CommandRecord cRec = RoboCommandsModel.keyEventToCommandRecord(e);
+								if (cRec != null) {
+									cRec.value = 0;
+									setWASDFlags(cRec.command, false);
+									processUserCommand(cRec);
+								}
+							}
+						}						
+					}					
+				}
+				return false;
 			}
 		};
 
 		KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-        manager.addKeyEventDispatcher(keyEventDispatcher);
+		manager.addKeyEventDispatcher(keyEventDispatcher);
 
 		// initialize the joystick listener
 		RoboRemote.hidManager.addEventListener(new HIDEventListener() {
@@ -756,7 +844,12 @@ public class MainWindow {
 				}
 
 				CommandRecord cRec = RoboCommandsModel.hidEventToCommandRecord(e);
-				if (cRec != null) {
+				if (cRec != null) {					
+					// HID WASD commands if any WASD keys are pressed
+					if(RoboCommandsModel.isWASDCommand(cRec.command) &&
+							isWASDPressed()) {
+						return;
+					}						
 					processUserCommand(cRec);
 				}
 			}
@@ -775,17 +868,32 @@ public class MainWindow {
 				}
 				logTextPane.append(message + "\n");
 			}
+
+			@Override
+			public void disconnected() {
+				connectionCheckBox.setSelected(false);
+				disconnectRobot();
+				JOptionPane.showMessageDialog(frame, "Connection lost", "Connection error",
+						JOptionPane.ERROR_MESSAGE);
+			}
 		});
 
 		// start the timer which will feed the rudder and throttle commands to
 		// the robot on regular basis
+		// we will send a sensors refresh command here as well - each 5th cycle
 		motorsTimer = new Timer(true);
 		motorsTimer.scheduleAtFixedRate(new TimerTask() {
+			int cycle = 0;
 			@Override
 			public void run() {
 				if (connectionManager.isConnected()) {
 					String message = generateMotorsCommand(speedRate.getValue(), turningRate.getValue());
 					connectionManager.sendMessage(message);
+
+					if((cycle++)==5) {
+						processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_RESCAN_DISTANCES, 1));
+						cycle = 0;
+					}
 				}
 			}
 		}, 1000, 100);
@@ -797,36 +905,73 @@ public class MainWindow {
 	}
 
 	// generates the motors control command string
+	// speedValue = [-255:255]
+	// turningValue = [-255:255]
 	private String generateMotorsCommand(int speedValue, int turningValue) {
-		int leftSpeed = 0;
-		int rightSpeed = 0;
+		final int TURNING_DEAD_ZONE = 90; // just a magic number
+		int leftSpeed = 255; // 255 means full stop
+		int rightSpeed = 255;
 
-		// we set the speed axis value to the leading track speed
-		// and then identify how much the secondary track speed should deviate
-		if (speedValue > 0) {
-			if (turningValue > 0) {
-				leftSpeed = speedValue + 255;
-				rightSpeed = leftSpeed - turningValue * 2;
-				rightSpeed = rightSpeed < 0 ? 0 : rightSpeed;
+		// pressing any of the directions buttons override the HID axis
+		// combine the button bits
+		if(isWASDPressed()) {
+			if(forwardButtonPressed==reverseButtonPressed) {
+				if(leftButtonPressed!=rightButtonPressed) {
+					leftSpeed = leftButtonPressed?0:511;
+					rightSpeed = leftButtonPressed?511:0;
+				}
 			} else {
-				rightSpeed = speedValue + 255;
-				leftSpeed = rightSpeed + turningValue * 2;
-				leftSpeed = leftSpeed < 0 ? 0 : leftSpeed;
+				if(leftButtonPressed==rightButtonPressed) {
+					leftSpeed = reverseButtonPressed?0:511;
+					rightSpeed = leftSpeed;
+				} else {
+					int speed = forwardButtonPressed?511:0;
+					if(leftButtonPressed) {
+						rightSpeed = speed;
+					} else {
+						leftSpeed = speed;
+					}
+				}
 			}
 		} else {
-			if (turningValue > 0) {
-				leftSpeed = speedValue + 255;
-				rightSpeed = leftSpeed + turningValue * 2;
-				rightSpeed = rightSpeed > 511 ? 511 : rightSpeed;
+			// introduce dead zone to make it easier straight move
+			if((turningValue>-TURNING_DEAD_ZONE)&&(turningValue<TURNING_DEAD_ZONE)) {
+				turningValue = 0;
+			}		
+
+			// we set the speed axis value to the leading track speed
+			// and then identify how much the secondary track speed should deviate
+			if (speedValue > 0) {
+				if (turningValue > 0) {
+					leftSpeed = speedValue + 255;
+					rightSpeed = leftSpeed - turningValue * 2;
+					rightSpeed = rightSpeed < 0 ? 0 : rightSpeed;
+				} else {
+					rightSpeed = speedValue + 255;
+					leftSpeed = rightSpeed + turningValue * 2;
+					leftSpeed = leftSpeed < 0 ? 0 : leftSpeed;
+				}
 			} else {
-				rightSpeed = speedValue + 255;
-				leftSpeed = rightSpeed - turningValue * 2;
-				leftSpeed = leftSpeed > 511 ? 511 : leftSpeed;
+				if (turningValue > 0) {
+					leftSpeed = speedValue + 255;
+					rightSpeed = leftSpeed + turningValue * 2;
+					rightSpeed = rightSpeed > 511 ? 511 : rightSpeed;
+				} else {
+					rightSpeed = speedValue + 255;
+					leftSpeed = rightSpeed - turningValue * 2;
+					leftSpeed = leftSpeed > 511 ? 511 : leftSpeed;
+				}
 			}
 		}
+
 		String message = "X" + String.format("%03d", leftSpeed) + String.format("%03d", rightSpeed)
 		+ RoboCommandsModel.REMOTE_CMD_TERM;
 		return message;
+	}
+
+	// Returns true if any of the WASD keys is pressed
+	private boolean isWASDPressed() {
+		return forwardButtonPressed||reverseButtonPressed||leftButtonPressed||rightButtonPressed;
 	}
 
 	// this is the method which processes commands from the user
@@ -838,8 +983,11 @@ public class MainWindow {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
+
+				String parameter = "";
+
 				switch (cRec.command) {
-				case CMD_FORWWARD:
+				case CMD_FORWARD:
 					speedRate.setValue(axisToInteger(cRec.value));
 					break;
 				case CMD_REVERSE:
@@ -852,7 +1000,29 @@ public class MainWindow {
 					turningRate.setValue(axisToInteger(cRec.value));
 					break;
 				default: {
-					String message = cRec.command.getRemoteCommand() + RoboCommandsModel.REMOTE_CMD_TERM;
+					// activate the mode radio button if needed
+					switch (cRec.command) {
+					case CMD_MODE_IDLE:
+						idleButton.setSelected(true);
+						break;
+					case CMD_MODE_AI:
+						aiButton.setSelected(true);
+						break;
+					case CMD_MODE_SCENARIO:
+						scenarioButton.setSelected(true);
+						break;
+					case CMD_MODE_RC:
+						rcButton.setSelected(true);
+						break;
+					case CMD_RESCAN_DISTANCES:
+						// this command has a parameter
+						parameter = (cRec.value==0?"0":"1");
+						break;
+					default:break;
+					}
+
+					// send actual command
+					String message = cRec.command.getRemoteCommand() + parameter + RoboCommandsModel.REMOTE_CMD_TERM;
 					connectionManager.sendMessage(message);
 
 					if (showAllCheckBox.isSelected()) {
@@ -938,6 +1108,25 @@ public class MainWindow {
 				}
 			}
 			break;
+		}
+	}
+
+	// update the WASD flags according to the command arrived
+	private void setWASDFlags(CommandsList command, boolean flag) {
+		switch (command) {
+		case CMD_FORWARD:
+			forwardButtonPressed = flag;
+			break;
+		case CMD_REVERSE:
+			reverseButtonPressed = flag;
+			break;
+		case CMD_LEFT:
+			leftButtonPressed = flag;
+			break;
+		case CMD_RIGHT:
+			rightButtonPressed = flag;
+			break;
+		default: break;
 		}
 	}
 

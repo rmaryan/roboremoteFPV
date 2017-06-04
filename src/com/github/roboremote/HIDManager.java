@@ -48,7 +48,7 @@ public class HIDManager {
 	private Timer pollTimer;
 
 	// all analog values around zero within this range will be changed to zero
-	private final float ZERO_DEAD_ZONE = 0.03f;
+	private final float ZERO_DEAD_ZONE = 0.03f;	
 
 	// Event listeners declarations
 	public interface HIDEventListener {
