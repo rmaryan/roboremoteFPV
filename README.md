@@ -5,6 +5,12 @@ See the details in our blogs:
  * http://onerobotstory.blogspot.com/ (English)
  * http://refunpro.blogspot.com/ (Ukrainian)
 
+## Installation
+
+ 1. Download the distribution archive: [roboremote.zip](roboremote.zip)
+ 2. Extract to any location
+ 3. Run roboremote.cmd (in Windows) 
+
 ## Remote Control Protocol
 
 Remote control is performed over Wi-Fi connection using simple telnet-like connection. It is also compatible with RoboRemo: http://www.roboremo.com/
@@ -64,8 +70,7 @@ Anyway it is required by vlcj
 Icons were derived from here: http://icons.webtoolhub.com/icon-p0s1155-set.aspx
 
 ## Action Items and Issues
- 1. Rewrite the joystick polling code. Current version pose too high load on the CPU.
- 2. Implement smoother joystick position translation to the motors speed (MainWindow.generateMotorsCommand()) 
+ 1. Implement smoother joystick position translation to the motors speed (MainWindow.generateMotorsCommand()) 
  
 ## Changes List
 ### 1.0
