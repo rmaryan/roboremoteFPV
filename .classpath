@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="D:/arduino/workspace/roboremote/lib"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="D:/arduino/workspace/roboremote/lib/jinput.jar"/>
+	<classpathentry kind="lib" path="D:/arduino/workspace/roboremote/lib/vlcj-3.10.1.jar"/>
+	<classpathentry kind="lib" path="D:/arduino/workspace/roboremote/lib/jna-4.1.0.jar"/>
+	<classpathentry kind="lib" path="D:/arduino/workspace/roboremote/lib/jna-platform-4.1.0.jar"/>
+	<classpathentry kind="lib" path="D:/arduino/workspace/roboremote/lib/slf4j-api-1.7.22.jar"/>
+	<classpathentry kind="lib" path="D:/arduino/workspace/roboremote/lib/slf4j-simple-1.7.22.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
