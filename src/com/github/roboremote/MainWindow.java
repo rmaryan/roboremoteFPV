@@ -385,7 +385,7 @@ public class MainWindow {
 		c.gridy = 3;
 		c.gridx = 1;
 
-		JButton refreshButton = new JButton(createResoruceIcon("Refresh.png")); 
+		JButton refreshButton = new JButton(createResoruceIcon("refresh.png")); 
 		refreshButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_RESCAN_DISTANCES, 0));
