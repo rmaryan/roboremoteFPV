@@ -939,28 +939,28 @@ public class MainWindow {
 				turningValue = 0;
 			}		
 
-			// we set the speed axis value to the leading track speed
-			// and then identify how much the secondary track speed should deviate
-			if (speedValue > 0) {
-				if (turningValue > 0) {
-					leftSpeed = speedValue + 255;
-					rightSpeed = leftSpeed - turningValue * 2;
-					rightSpeed = rightSpeed < 0 ? 0 : rightSpeed;
-				} else {
-					rightSpeed = speedValue + 255;
-					leftSpeed = rightSpeed + turningValue * 2;
-					leftSpeed = leftSpeed < 0 ? 0 : leftSpeed;
-				}
+			// the joystick position to the motors speeds conversion is a symmetric task
+			// let's identify if the joystick is turned to the right or to the left
+			boolean rightSemicircle = turningValue >= 0;
+			
+			// this value represents how far joystic deviates from the zero point
+			int magnitude = (int) java.lang.Math.round(
+					java.lang.Math.sqrt(speedValue*speedValue + turningValue*turningValue));
+			
+			// we do calculations for the right semicircle
+			if(speedValue <= 0) {
+				rightSpeed = 255 - magnitude;
+				leftSpeed = 255 - magnitude + 2 * (magnitude + speedValue);
 			} else {
-				if (turningValue > 0) {
-					leftSpeed = speedValue + 255;
-					rightSpeed = leftSpeed + turningValue * 2;
-					rightSpeed = rightSpeed > 511 ? 511 : rightSpeed;
-				} else {
-					rightSpeed = speedValue + 255;
-					leftSpeed = rightSpeed - turningValue * 2;
-					leftSpeed = leftSpeed > 511 ? 511 : leftSpeed;
-				}
+				rightSpeed =  255 - magnitude + 2 * speedValue;
+				leftSpeed = 255 + magnitude;
+			}
+			
+			// for the left semicircle just swap the motors
+			if(!rightSemicircle) {
+				int tempSpeed = leftSpeed;
+				leftSpeed = rightSpeed;
+				rightSpeed = tempSpeed;
 			}
 		}
 
