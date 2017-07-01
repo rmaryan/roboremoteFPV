@@ -934,33 +934,41 @@ public class MainWindow {
 				}
 			}
 		} else {
-			// introduce dead zone to make it easier straight move
-			if((turningValue>-TURNING_DEAD_ZONE)&&(turningValue<TURNING_DEAD_ZONE)) {
+			int absSpeedValue = java.lang.Math.abs(speedValue);
+			int absTurningValue = java.lang.Math.abs(turningValue);
+			
+			// introduce dead zone to make it easier straight move			
+			if(absTurningValue < TURNING_DEAD_ZONE) {
 				turningValue = 0;
+				absTurningValue = 0;
 			}		
 
-			// we set the speed axis value to the leading track speed
-			// and then identify how much the secondary track speed should deviate
-			if (speedValue > 0) {
-				if (turningValue > 0) {
-					leftSpeed = speedValue + 255;
-					rightSpeed = leftSpeed - turningValue * 2;
-					rightSpeed = rightSpeed < 0 ? 0 : rightSpeed;
-				} else {
-					rightSpeed = speedValue + 255;
-					leftSpeed = rightSpeed + turningValue * 2;
-					leftSpeed = leftSpeed < 0 ? 0 : leftSpeed;
-				}
+			// the joystick position to the motors speeds conversion is a symmetric task
+			// let's identify if the joystick is turned to the right or to the left
+			boolean rightSemicircle = turningValue >= 0;
+			
+			// this value represents how far joystic deviates from the zero point
+			int magnitude = java.lang.Math.max(absSpeedValue, absTurningValue);
+			
+			// measuring the angle between the joystick position and the vertical line
+			double hypot = java.lang.Math.sqrt(speedValue*speedValue + turningValue*turningValue);			
+			double sin = absTurningValue/hypot;
+			int motorDelta = (int) java.lang.Math.round(2 * magnitude*sin);
+			
+			// we do calculations for the right semicircle
+			if(speedValue <= 0) {
+				rightSpeed = 255 - magnitude;
+				leftSpeed = 255 - magnitude + motorDelta;
 			} else {
-				if (turningValue > 0) {
-					leftSpeed = speedValue + 255;
-					rightSpeed = leftSpeed + turningValue * 2;
-					rightSpeed = rightSpeed > 511 ? 511 : rightSpeed;
-				} else {
-					rightSpeed = speedValue + 255;
-					leftSpeed = rightSpeed - turningValue * 2;
-					leftSpeed = leftSpeed > 511 ? 511 : leftSpeed;
-				}
+				rightSpeed =  255 + magnitude - motorDelta;
+				leftSpeed = 255 + magnitude;
+			}
+			
+			// for the left semicircle just swap the motors
+			if(!rightSemicircle) {
+				int tempSpeed = leftSpeed;
+				leftSpeed = rightSpeed;
+				rightSpeed = tempSpeed;
 			}
 		}
 
