@@ -76,4 +76,4 @@ Icons were derived from here: http://icons.webtoolhub.com/icon-p0s1155-set.aspx
  
 ## Changes List
 ### 1.0
-Initial version.
+Initial version. More details here: http://refunpro.blogspot.com/2017/07/17.html (Ukr)
