@@ -27,9 +27,9 @@ Remote control is performed over Wi-Fi connection using simple telnet-like conne
 | S               | Move Backward          | -                                           |
 | A               | Turn Left              | -                                           |
 | D               | Turn Right             | -                                           |
-| LF              | Toggle Front Lights    | LF1 or LF0                                  |
-| LR              | Toggle Rear Lights     | LR1 or LR0                                  |
-| LS              | Toggle Side Lights     | LS1 or LS0                                  |
+| LFx             | Turn Front Lights (1 - ON, 2 - OFF)   | LF1 or LF0                   |
+| LRx             | Turn Rear Lights (1 - ON, 2 - OFF)    | LR1 or LR0                   |
+| LSx             | Turn Side Lights (1 - ON, 2 - OFF)    | LS1 or LS0                   |
 | R0              | Refresh Distances (with the head turn) | RLxx - left distance, where xx is a distance in centimeters with the leading zeros. RL-- means "not available" |
 |                 |                        | RFxx - front distance                          |
 |                 |                        | RRxx - right distance                          |
