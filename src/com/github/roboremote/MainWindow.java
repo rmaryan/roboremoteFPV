@@ -705,6 +705,7 @@ public class MainWindow {
 		JCheckBox frontLights = new JCheckBox("Headlight"); 
 		frontLights.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				frontLightIndicator.setIcon(redLightIcon);
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_FRONT, frontLights.isSelected()?1:0));
 			}
 		});		
@@ -713,6 +714,7 @@ public class MainWindow {
 		JCheckBox rearLights = new JCheckBox("Rear Light"); 
 		rearLights.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				rearLightIndicator.setIcon(redLightIcon);
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_REAR, rearLights.isSelected()?1:0));
 			}
 		});		
@@ -722,6 +724,7 @@ public class MainWindow {
 		JCheckBox sideLights = new JCheckBox("Side Lights"); 
 		sideLights.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				sideLightIndicator.setIcon(redLightIcon);
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_SIDES, sideLights.isSelected()?1:0));
 			}
 		});
