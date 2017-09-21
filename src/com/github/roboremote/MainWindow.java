@@ -702,11 +702,34 @@ public class MainWindow {
 		c.insets.set(0, 0, 0, 5);
 
 		// Lights buttons
-		p.add(new JCheckBox("Headlight"), c);
+		JCheckBox frontLights = new JCheckBox("Headlight"); 
+		frontLights.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				frontLightIndicator.setIcon(redLightIcon);
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_FRONT, frontLights.isSelected()?1:0));
+			}
+		});		
+		p.add(frontLights, c);
+		
+		JCheckBox rearLights = new JCheckBox("Rear Light"); 
+		rearLights.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				rearLightIndicator.setIcon(redLightIcon);
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_REAR, rearLights.isSelected()?1:0));
+			}
+		});		
 		c.gridy = 1;
-		p.add(new JCheckBox("Rear Light"), c);
+		p.add(rearLights, c);
+		
+		JCheckBox sideLights = new JCheckBox("Side Lights"); 
+		sideLights.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				sideLightIndicator.setIcon(redLightIcon);
+				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_SIDES, sideLights.isSelected()?1:0));
+			}
+		});
 		c.gridy = 2;
-		p.add(new JCheckBox("Side Lights"), c);
+		p.add(sideLights, c);
 
 		// Lights indicators
 		frontLightIndicator = new JLabel(grayLightIcon);
@@ -1022,6 +1045,9 @@ public class MainWindow {
 					case CMD_MODE_RC:
 						rcButton.setSelected(true);
 						break;
+					case CMD_LIGHTS_FRONT:
+					case CMD_LIGHTS_REAR:
+					case CMD_LIGHTS_SIDES:
 					case CMD_RESCAN_DISTANCES:
 						// this command has a parameter
 						parameter = (cRec.value==0?"0":"1");
