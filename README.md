@@ -1,4 +1,4 @@
-# roboremote
+# roboremoteFPV
 A remote control application for the Arduino-based robot
 
 See the details in our blogs:
