@@ -75,5 +75,7 @@ Icons were derived from here: http://icons.webtoolhub.com/icon-p0s1155-set.aspx
  1. Implement smoother joystick position translation to the motors speed (MainWindow.generateMotorsCommand()) 
  
 ## Changes List
+### 1.1
+Added support for the front, rear, and side LED lights. More details here: http://refunpro.blogspot.com/??? (Ukr)
 ### 1.0
 Initial version. More details here: http://refunpro.blogspot.com/2017/07/17.html (Ukr)
