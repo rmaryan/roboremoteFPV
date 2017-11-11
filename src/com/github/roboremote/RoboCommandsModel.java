@@ -286,7 +286,7 @@ public class RoboCommandsModel {
 			hidToCmdMap.put(hidCommandsList[i], commandsList[i]);
 		}
 	}
-	
+
 	// Return the command code with argument if needed which corresponds to the keyboard code
 	// or null if command should be ignored
 	public static CommandRecord keyEventToCommandRecord(KeyEvent e) {
@@ -294,10 +294,18 @@ public class RoboCommandsModel {
 		if(command == null) {
 			return null;
 		} else {
-			return new CommandRecord(command, 1);
+			// for the lights commands - return value = 3 to signal the neeed to toggle the state
+			// for others - return value = 1
+			if((command == CommandsList.CMD_LIGHTS_FRONT) ||
+					(command == CommandsList.CMD_LIGHTS_REAR) ||
+					(command == CommandsList.CMD_LIGHTS_SIDES)) {
+				return new CommandRecord(command, 3);
+			} else {
+				return new CommandRecord(command, 1);
+			}
 		}
 	}
-	
+
 	// Returns true if the key code specified corresponds to the WASD command (Forward, Reverse, Left, Right)
 	public static boolean isWASDKey(Integer keyCode) {
 		return wasdKeys.contains(keyCode);
@@ -310,7 +318,7 @@ public class RoboCommandsModel {
 				(command == CommandsList.CMD_LEFT) ||
 				(command == CommandsList.CMD_RIGHT);
 	}
-	
+
 	// Return the command code with argument if needed which is parsed from the
 	// HID event or null if command should be ignored
 	public static CommandRecord hidEventToCommandRecord(Event e) {
@@ -329,26 +337,31 @@ public class RoboCommandsModel {
 		if (command == null) {
 			return null;
 		} else {
-			// debounce the commands
-			Float lastValue = lastCmdValueMap.get(command);
-			if (lastValue != null) {
-				if (component.isAnalog()) {
+			if (component.isAnalog()) {
+				// debounce the analog commands
+				Float lastValue = lastCmdValueMap.get(command);
+				if (lastValue != null) {
 					// don't send a command if the change is insignificant
 					if (Math.abs(lastValue - value) <= IGNORE_DELTA) {
 						return null;
 					}
-				} else {
-					// don't send the same command twice
-					if (value == lastValue) {
-						return null;
-					}
+				}
+				// store the value we are going to send
+				lastCmdValueMap.put(command, value);
+			} else {
+				//don't send the button release events
+				if(value == 0) {
+					return null;
+				}
+				// for the lights commands - return value = 3 to signal the neeed to toggle the state
+				if((command == CommandsList.CMD_LIGHTS_FRONT) ||
+						(command == CommandsList.CMD_LIGHTS_REAR) ||
+						(command == CommandsList.CMD_LIGHTS_SIDES)) {
+					value = 3;
 				}
 			}
-
-			// store the value we are going to send
-			lastCmdValueMap.put(command, value);
-
-			return new CommandRecord(command, value);
 		}
+
+		return new CommandRecord(command, value);
 	}
 }
