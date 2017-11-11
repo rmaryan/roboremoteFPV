@@ -117,6 +117,9 @@ public class MainWindow {
 	private JLabel groundLeftIndicator;
 	private JLabel groundRightIndicator;
 
+	private JCheckBox frontLights;
+	private JCheckBox rearLights;
+	private JCheckBox sideLights;
 	private JLabel frontLightIndicator;
 	private JLabel rearLightIndicator;
 	private JLabel sideLightIndicator;
@@ -702,29 +705,26 @@ public class MainWindow {
 		c.insets.set(0, 0, 0, 5);
 
 		// Lights buttons
-		JCheckBox frontLights = new JCheckBox("Headlight"); 
+		frontLights = new JCheckBox("Headlight"); 
 		frontLights.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				frontLightIndicator.setIcon(redLightIcon);
+			public void actionPerformed(ActionEvent e) {				
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_FRONT, frontLights.isSelected()?1:0));
 			}
 		});		
 		p.add(frontLights, c);
 		
-		JCheckBox rearLights = new JCheckBox("Rear Light"); 
+		rearLights = new JCheckBox("Rear Light"); 
 		rearLights.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				rearLightIndicator.setIcon(redLightIcon);
+			public void actionPerformed(ActionEvent e) {				
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_REAR, rearLights.isSelected()?1:0));
 			}
 		});		
 		c.gridy = 1;
 		p.add(rearLights, c);
 		
-		JCheckBox sideLights = new JCheckBox("Side Lights"); 
+		sideLights = new JCheckBox("Side Lights"); 
 		sideLights.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				sideLightIndicator.setIcon(redLightIcon);
 				processUserCommand(new CommandRecord(RoboCommandsModel.CommandsList.CMD_LIGHTS_SIDES, sideLights.isSelected()?1:0));
 			}
 		});
@@ -872,7 +872,7 @@ public class MainWindow {
 					if(RoboCommandsModel.isWASDCommand(cRec.command) &&
 							isWASDPressed()) {
 						return;
-					}						
+					}
 					processUserCommand(cRec);
 				}
 			}
@@ -1031,7 +1031,8 @@ public class MainWindow {
 					turningRate.setValue(axisToInteger(cRec.value));
 					break;
 				default: {
-					// activate the mode radio button if needed
+					// set the radio buttons/check box states if needed
+					boolean parameterState = (cRec.value!=0.0); 
 					switch (cRec.command) {
 					case CMD_MODE_IDLE:
 						idleButton.setSelected(true);
@@ -1046,11 +1047,36 @@ public class MainWindow {
 						rcButton.setSelected(true);
 						break;
 					case CMD_LIGHTS_FRONT:
+						// need to toggle the check box?
+						if(cRec.value == 3.0) {
+							parameterState = !frontLights.isSelected();
+							frontLights.setSelected(parameterState);
+						}
+					
+						frontLightIndicator.setIcon(redLightIcon);
+						parameter = (parameterState?"1":"0");
+						break;
 					case CMD_LIGHTS_REAR:
+						if(cRec.value == 3.0) {
+							parameterState = !rearLights.isSelected();
+							rearLights.setSelected(parameterState);
+						}
+
+						rearLightIndicator.setIcon(redLightIcon);
+						parameter = (parameterState?"1":"0");
+						break;
 					case CMD_LIGHTS_SIDES:
+						if(cRec.value == 3.0) {
+							parameterState = !sideLights.isSelected();
+							sideLights.setSelected(parameterState);
+						}
+
+						sideLightIndicator.setIcon(redLightIcon);
+						parameter = (parameterState?"1":"0");
+						break;
 					case CMD_RESCAN_DISTANCES:
 						// this command has a parameter
-						parameter = (cRec.value==0?"0":"1");
+						parameter = (parameterState?"1":"0");
 						break;
 					default:break;
 					}
