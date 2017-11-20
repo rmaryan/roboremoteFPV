@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="WINDOWS-1251" standalone="no"?>
 <jardesc>
-    <jar path="roboremote/bin/roboremote-1.0.jar"/>
-    <options buildIfNeeded="true" compress="true" descriptionLocation="/roboremote/roboremote_jar.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="true" overwrite="true" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <jar path="roboremote/bin/roboremote-1.1.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/roboremote/roboremote_jar.jardesc" exportErrors="false" exportWarnings="false" includeDirectoryEntries="true" overwrite="true" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
     <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
     <selectedProjects/>
     <manifest generateManifest="true" mainClassHandleIdentifier="=roboremote/src&lt;com.github.roboremote{RoboRemote.java[RoboRemote" manifestLocation="" manifestVersion="1.0" reuseManifest="false" saveManifest="false" usesManifest="true">
@@ -11,11 +11,11 @@
         </sealing>
     </manifest>
     <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+        <folder path="/roboremote/lib"/>
         <file path="/roboremote/roboremote_jar.jardesc"/>
         <javaElement handleIdentifier="=roboremote/src"/>
-        <file path="/roboremote/.gitignore"/>
-        <file path="/roboremote/.project"/>
-        <file path="/roboremote/.classpath"/>
+        <folder path="/roboremote/libraries"/>
         <file path="/roboremote/README.md"/>
+        <file path="/roboremote/.classpath"/>
     </selectedElements>
 </jardesc>

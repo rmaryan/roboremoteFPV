@@ -120,6 +120,7 @@ public class MainWindow {
 	private JCheckBox frontLights;
 	private JCheckBox rearLights;
 	private JCheckBox sideLights;
+	
 	private JLabel frontLightIndicator;
 	private JLabel rearLightIndicator;
 	private JLabel sideLightIndicator;

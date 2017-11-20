@@ -144,8 +144,8 @@ public class RoboCommandsModel {
 	private static Vector<String> videoStreams = new Vector<String>();
 	private static String lastUsedConnection = "";
 	private static int[] kbCommandsList = new int[COMMANDS_COUNT]; // store
-																	// KeyCodes
-																	// here
+	// KeyCodes
+	// here
 	private static String[] hidCommandsList = new String[COMMANDS_COUNT];
 	private static String selectedController = "";
 
