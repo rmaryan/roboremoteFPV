@@ -5,6 +5,8 @@ See the details in our blogs:
  * http://onerobotstory.blogspot.com/ (English)
  * http://refunpro.blogspot.com/ (Ukrainian)
 
+[![Usage Video](https://img.youtube.com/vi/E--U50H-jFw/0.jpg)](https://www.youtube.com/watch?v=E--U50H-jFw)
+
 This program is free software. You can redistribute it and/or modify it under the terms of the [GNU General Public License](http://www.fsf.org/licenses/gpl.html) as published by the [Free Software Foundation](http://www.fsf.org/).
 
 ## Installation
